@@ -100,6 +100,34 @@ app.post("/example-webhook-handler",async (req: Request, res: Response) => {
     console.log(req.body)
 })
 
+/*`app.post("/api/user/profile",async (req: Request, res: Response) => { ... })` handles Course Creator 360 user profile data */
+app.post("/api/user/profile", async (req: Request, res: Response) => {
+  try {
+    const profileData = req.body;
+    
+    // Log the profile data for development
+    console.log("Course Creator 360 Profile Data:", JSON.stringify(profileData, null, 2));
+    
+    // Here you would typically save to a database
+    // For now, we'll just acknowledge receipt
+    const response = {
+      success: true,
+      message: "Profile saved successfully",
+      timestamp: new Date().toISOString(),
+      profileId: `cc360_${Date.now()}` // Generate a simple ID
+    };
+    
+    res.status(200).json(response);
+  } catch (error) {
+    console.error("Error saving profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to save profile",
+      error: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+})
+
 
 /* The `app.post("/decrypt-sso",async (req: Request, res: Response) => { ... })` route is used to
 decrypt session details using ssoKey. */
