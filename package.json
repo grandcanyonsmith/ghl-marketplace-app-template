@@ -2,7 +2,7 @@
   "name": "ghl-marketplace-app-template",
   "version": "1.0.0",
   "description": "A boilerplate for creating GHL marketplace apps",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
   "scripts": {
     "build": "npx tsc && npm run build-ui && mkdir -p ./dist/ui/dist && cp -r ./src/ui/dist ./dist/ui",
     "build-ui": "cd src/ui && npm i && npm run build && cd ../../",
