@@ -221,6 +221,69 @@ app.post("/test-install", async (req: Request, res: Response) => {
   });
 });
 
+// Endpoint to get GHL user context information
+app.get("/api/user-context", async (req: Request, res: Response) => {
+  try {
+    // Extract potential identifiers from URL parameters
+    const { 
+      companyId, 
+      locationId, 
+      userId, 
+      token,
+      ssoKey 
+    } = req.query;
+
+    // Get user info from SSO token if provided
+    let ssoData = null;
+    if (ssoKey) {
+      try {
+        ssoData = ghl.decryptSSOData(ssoKey as string);
+      } catch (error) {
+        console.log("SSO decryption failed:", error);
+      }
+    }
+
+    // Build user context response
+    const userContext = {
+      timestamp: new Date().toISOString(),
+      identifiers: {
+        companyId: companyId || ssoData?.companyId || null,
+        locationId: locationId || ssoData?.locationId || null,
+        userId: userId || ssoData?.userId || null,
+      },
+      ssoData: ssoData,
+      installationExists: false,
+      hasValidToken: false,
+      appStatus: "active"
+    };
+
+    // Check if we have installation data for this company/location
+    const resourceId = userContext.identifiers.companyId || userContext.identifiers.locationId;
+    if (resourceId) {
+      userContext.installationExists = ghl.checkInstallationExists(resourceId);
+      if (userContext.installationExists) {
+        userContext.hasValidToken = !!ghl.model.getAccessToken(resourceId);
+      }
+    }
+
+    console.log("User Context Request:", userContext);
+    
+    res.json({
+      success: true,
+      userContext: userContext,
+      message: "User context retrieved successfully"
+    });
+
+  } catch (error) {
+    console.error("Error getting user context:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get user context",
+      message: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
 // Debug endpoint to check stored installations
 app.get("/debug-installations", (req: Request, res: Response) => {
   res.json({

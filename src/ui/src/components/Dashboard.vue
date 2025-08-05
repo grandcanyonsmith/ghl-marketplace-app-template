@@ -21,6 +21,9 @@
     <!-- Main Content -->
     <main class="dashboard-main">
       <div class="dashboard-container">
+        <!-- GHL User Information Section -->
+        <GHLUserInfo />
+        
         <!-- Welcome Section -->
         <section class="welcome-section">
           <div class="welcome-card">
@@ -191,8 +194,13 @@
 </template>
 
 <script>
+import GHLUserInfo from './GHLUserInfo.vue'
+
 export default {
   name: 'DashboardMain',
+  components: {
+    GHLUserInfo
+  },
   props: {
     userProfile: {
       type: Object,
