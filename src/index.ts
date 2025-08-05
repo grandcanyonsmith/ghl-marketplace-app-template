@@ -374,11 +374,13 @@ app.post("/webhook-test", (req: Request, res: Response) => {
     const payload = JSON.stringify(req.body);
     const webhookData: WebhookPayload = req.body;
     
-    const validationResults = {
+    const validationResults: any = {
       timestamp: new Date().toISOString(),
       signature: {
         present: !!signature,
-        valid: signature ? verifyWebhookSignature(payload, signature) : false
+        valid: signature ? verifyWebhookSignature(payload, signature) : false,
+        receivedSignature: signature ? signature.substring(0, 20) + '...' : null,
+        payloadLength: payload.length
       },
       payload: {
         hasTimestamp: !!webhookData.timestamp,
@@ -388,15 +390,6 @@ app.post("/webhook-test", (req: Request, res: Response) => {
       },
       summary: 'Test completed - webhook NOT processed'
     };
-    
-    // Add signature details for debugging
-    if (signature) {
-      validationResults.signature = {
-        ...validationResults.signature,
-        receivedSignature: signature.substring(0, 20) + '...',
-        payloadLength: payload.length
-      };
-    }
     
     res.status(200).json({
       success: true,
