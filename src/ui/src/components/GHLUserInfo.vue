@@ -2,13 +2,13 @@
   <div class="ghl-user-info">
     <div class="info-card">
       <div class="card-header">
-        <h3>🔐 GHL Secure Authentication</h3>
+        <h3>🚀 GHL CustomJS Utilities</h3>
         <div class="header-indicators">
           <div class="status-indicator" :class="{ 'connected': userContext.hasValidToken, 'disconnected': !userContext.hasValidToken }">
             {{ userContext.hasValidToken ? 'OAuth Connected' : 'OAuth Pending' }}
           </div>
           <div class="data-indicator" :class="{ 'live': isDynamicData, 'static': !isDynamicData }">
-            {{ isDynamicData ? '🔐 SECURED' : '📊 FALLBACK' }}
+            {{ isDynamicData ? '🚀 LIVE API' : '📊 FALLBACK' }}
           </div>
         </div>
       </div>
@@ -92,6 +92,48 @@
           </div>
         </div>
         
+        <!-- Company Information Section -->
+        <div v-if="userContext.companyData" class="plan-section">
+          <h4>🏢 Company Information</h4>
+          <div class="plan-grid">
+            <div class="plan-item" v-if="userContext.companyData?.name">
+              <label>Company Name:</label>
+              <span class="value success">{{ userContext.companyData.name }}</span>
+            </div>
+            <div class="plan-item" v-if="userContext.companyData?.id">
+              <label>Company ID:</label>
+              <span class="value">{{ userContext.companyData.id }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Location Information Section -->
+        <div v-if="userContext.locationData" class="plan-section">
+          <h4>📍 Location Information</h4>
+          <div class="plan-grid">
+            <div class="plan-item" v-if="userContext.locationData?.name">
+              <label>Location Name:</label>
+              <span class="value success">{{ userContext.locationData.name }}</span>
+            </div>
+            <div class="plan-item" v-if="userContext.locationData?.id">
+              <label>Location ID:</label>
+              <span class="value">{{ userContext.locationData.id }}</span>
+            </div>
+            <div class="plan-item" v-if="userContext.locationData?.address?.city">
+              <label>City:</label>
+              <span class="value">{{ userContext.locationData.address.city }}</span>
+            </div>
+            <div class="plan-item" v-if="userContext.locationData?.address?.country">
+              <label>Country:</label>
+              <span class="value">{{ userContext.locationData.address.country }}</span>
+            </div>
+            <div class="plan-item" v-if="userContext.locationData?.address?.address">
+              <label>Address:</label>
+              <span class="value">{{ userContext.locationData.address.address }}</span>
+            </div>
+          </div>
+        </div>
+        
         <div v-if="userContext.ssoData" class="sso-section">
           <h4>SSO Data:</h4>
           <pre class="sso-data">{{ JSON.stringify(userContext.ssoData, null, 2) }}</pre>
@@ -131,6 +173,8 @@ export default {
         },
         userRole: null,
         userType: null,
+        locationData: null,
+        companyData: null,
         installationExists: false,
         hasValidToken: false,
         appStatus: 'unknown',
@@ -166,33 +210,59 @@ export default {
       this.error = null;
       
       try {
-        console.log('🔐 Using Official GHL Shared Secret authentication...');
+        console.log('🚀 Using Official GHL CustomJS Utilities...');
         
-        // Method 1: Try Official GHL postMessage method for custom pages
-        const officialUserData = await this.getOfficialGHLUserData();
+        // Method 1: Try Official GHL CustomJS utility methods (most reliable)
+        const customJSData = await this.getOfficialCustomJSData();
         
-        if (officialUserData) {
-          console.log('✅ Official GHL user data received:', officialUserData);
+        if (customJSData) {
+          console.log('✅ Official GHL CustomJS data received:', customJSData);
           
           this.userContext.identifiers = {
-            companyId: officialUserData.companyId,
-            locationId: officialUserData.activeLocation,
-            userId: officialUserData.userId,
-            userName: officialUserData.userName,
-            userEmail: officialUserData.email
+            companyId: customJSData.companyId,
+            locationId: customJSData.locationId,
+            userId: customJSData.userId,
+            userName: customJSData.userName,
+            userEmail: customJSData.userEmail
           };
           
-          this.userContext.userRole = officialUserData.role;
-          this.userContext.userType = officialUserData.type;
+          this.userContext.userRole = customJSData.userRole;
+          this.userContext.userType = customJSData.userType;
+          this.userContext.locationData = customJSData.locationData;
+          this.userContext.companyData = customJSData.companyData;
           this.isDynamicData = true;
           
           // Check OAuth installation status
           await this.checkInstallationStatus();
           
         } else {
-          console.warn('🔄 Official method failed, trying fallback extraction...');
-          // Fallback to previous extraction methods
-          this.extractFromGlobalContext();
+          console.warn('🔄 CustomJS method failed, trying Shared Secret method...');
+          
+          // Method 2: Try postMessage with Shared Secret decryption
+          const sharedSecretData = await this.getOfficialGHLUserData();
+          
+          if (sharedSecretData) {
+            console.log('✅ Shared Secret user data received:', sharedSecretData);
+            
+            this.userContext.identifiers = {
+              companyId: sharedSecretData.companyId,
+              locationId: sharedSecretData.activeLocation,
+              userId: sharedSecretData.userId,
+              userName: sharedSecretData.userName,
+              userEmail: sharedSecretData.email
+            };
+            
+            this.userContext.userRole = sharedSecretData.role;
+            this.userContext.userType = sharedSecretData.type;
+            this.isDynamicData = true;
+            
+            await this.checkInstallationStatus();
+            
+          } else {
+            console.warn('🔄 All official methods failed, trying fallback extraction...');
+            // Fallback to manual extraction methods
+            this.extractFromGlobalContext();
+          }
         }
         
       } catch (error) {
@@ -204,6 +274,75 @@ export default {
         
       } finally {
         this.loading = false;
+      }
+    },
+
+    async getOfficialCustomJSData() {
+      try {
+        console.log('📡 Attempting to use GHL CustomJS Utilities...');
+        
+        // Check if AppUtils is available (official GHL CustomJS environment)
+        if (typeof window.AppUtils === 'undefined') {
+          console.warn('⚠️ AppUtils not available - not in GHL CustomJS environment');
+          return null;
+        }
+
+        // Use official GHL utility methods
+        const [userInfo, locationInfo, companyInfo] = await Promise.all([
+          window.AppUtils.Utilities.getCurrentUser().catch(e => {
+            console.warn('getCurrentUser failed:', e);
+            return null;
+          }),
+          window.AppUtils.Utilities.getCurrentLocation().catch(e => {
+            console.warn('getCurrentLocation failed:', e);
+            return null;
+          }),
+          window.AppUtils.Utilities.getCompany().catch(e => {
+            console.warn('getCompany failed:', e);
+            return null;
+          })
+        ]);
+
+        console.log('📊 CustomJS API Results:', {
+          userInfo,
+          locationInfo,
+          companyInfo
+        });
+
+        if (!userInfo && !locationInfo && !companyInfo) {
+          console.warn('⚠️ No data received from CustomJS utilities');
+          return null;
+        }
+
+        // Transform the data to our expected format
+        const customJSData = {
+          // User data from getCurrentUser()
+          userId: userInfo?.id,
+          userName: userInfo?.name || `${userInfo?.firstName || ''} ${userInfo?.lastName || ''}`.trim(),
+          userEmail: userInfo?.email,
+          userRole: userInfo?.role,
+          userType: userInfo?.type,
+          
+          // Location data from getCurrentLocation()
+          locationId: locationInfo?.id,
+          locationName: locationInfo?.name,
+          locationAddress: locationInfo?.address,
+          
+          // Company data from getCompany()
+          companyId: companyInfo?.id,
+          companyName: companyInfo?.name,
+
+          // Store raw data for debugging
+          locationData: locationInfo,
+          companyData: companyInfo
+        };
+
+        console.log('✅ Transformed CustomJS data:', customJSData);
+        return customJSData;
+
+      } catch (error) {
+        console.warn('⚠️ CustomJS utilities failed:', error.message);
+        return null;
       }
     },
 
