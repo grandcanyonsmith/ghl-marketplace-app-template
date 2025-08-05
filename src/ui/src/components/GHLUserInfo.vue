@@ -2,13 +2,13 @@
   <div class="ghl-user-info">
     <div class="info-card">
       <div class="card-header">
-        <h3>🚀 GHL CustomJS Utilities</h3>
+        <h3>🔐 Multi-Tier GHL Authentication</h3>
         <div class="header-indicators">
           <div class="status-indicator" :class="{ 'connected': userContext.hasValidToken, 'disconnected': !userContext.hasValidToken }">
             {{ userContext.hasValidToken ? 'OAuth Connected' : 'OAuth Pending' }}
           </div>
           <div class="data-indicator" :class="{ 'live': isDynamicData, 'static': !isDynamicData }">
-            {{ isDynamicData ? '🚀 LIVE API' : '📊 FALLBACK' }}
+            {{ isDynamicData ? '🔐 OFFICIAL' : '📊 FALLBACK' }}
           </div>
         </div>
       </div>
@@ -236,32 +236,56 @@ export default {
           await this.checkInstallationStatus();
           
         } else {
-          console.warn('🔄 CustomJS method failed, trying Shared Secret method...');
+          console.warn('🔄 CustomJS method failed, trying exposeSessionDetails method...');
           
-          // Method 2: Try postMessage with Shared Secret decryption
-          const sharedSecretData = await this.getOfficialGHLUserData();
+          // Method 2: Try exposeSessionDetails with Shared Secret decryption
+          const exposeSessionData = await this.getExposeSessionDetailsData();
           
-          if (sharedSecretData) {
-            console.log('✅ Shared Secret user data received:', sharedSecretData);
+          if (exposeSessionData) {
+            console.log('✅ exposeSessionDetails user data received:', exposeSessionData);
             
             this.userContext.identifiers = {
-              companyId: sharedSecretData.companyId,
-              locationId: sharedSecretData.activeLocation,
-              userId: sharedSecretData.userId,
-              userName: sharedSecretData.userName,
-              userEmail: sharedSecretData.email
+              companyId: exposeSessionData.companyId,
+              locationId: exposeSessionData.activeLocation,
+              userId: exposeSessionData.userId,
+              userName: exposeSessionData.userName,
+              userEmail: exposeSessionData.email
             };
             
-            this.userContext.userRole = sharedSecretData.role;
-            this.userContext.userType = sharedSecretData.type;
+            this.userContext.userRole = exposeSessionData.role;
+            this.userContext.userType = exposeSessionData.type;
             this.isDynamicData = true;
             
             await this.checkInstallationStatus();
             
           } else {
-            console.warn('🔄 All official methods failed, trying fallback extraction...');
-            // Fallback to manual extraction methods
-            this.extractFromGlobalContext();
+            console.warn('🔄 exposeSessionDetails failed, trying postMessage method...');
+            
+            // Method 3: Try postMessage with Shared Secret decryption
+            const sharedSecretData = await this.getOfficialGHLUserData();
+            
+            if (sharedSecretData) {
+              console.log('✅ postMessage Shared Secret user data received:', sharedSecretData);
+              
+              this.userContext.identifiers = {
+                companyId: sharedSecretData.companyId,
+                locationId: sharedSecretData.activeLocation,
+                userId: sharedSecretData.userId,
+                userName: sharedSecretData.userName,
+                userEmail: sharedSecretData.email
+              };
+              
+              this.userContext.userRole = sharedSecretData.role;
+              this.userContext.userType = sharedSecretData.type;
+              this.isDynamicData = true;
+              
+              await this.checkInstallationStatus();
+              
+            } else {
+              console.warn('🔄 All official methods failed, trying fallback extraction...');
+              // Fallback to manual extraction methods
+              this.extractFromGlobalContext();
+            }
           }
         }
         
@@ -342,6 +366,60 @@ export default {
 
       } catch (error) {
         console.warn('⚠️ CustomJS utilities failed:', error.message);
+        return null;
+      }
+    },
+
+    async getExposeSessionDetailsData() {
+      try {
+        console.log('🔐 Attempting to use exposeSessionDetails method...');
+        
+        // Check if exposeSessionDetails is available (custom JavaScript environment)
+        if (typeof window.exposeSessionDetails !== 'function') {
+          console.warn('⚠️ exposeSessionDetails not available - not in custom JavaScript environment');
+          return null;
+        }
+
+        // APP_ID is your application's unique identifier (use Client ID)
+        const APP_ID = '6884026ffd0834e1de781ad2-mdxtminw'; // Your GHL App Client ID
+        
+        console.log('📡 Calling window.exposeSessionDetails with APP_ID:', APP_ID);
+        
+        // Use official GHL exposeSessionDetails method
+        const encryptedUserData = await window.exposeSessionDetails(APP_ID);
+        
+        if (!encryptedUserData) {
+          console.warn('⚠️ No encrypted data received from exposeSessionDetails');
+          return null;
+        }
+
+        console.log('📨 Received encrypted data from exposeSessionDetails');
+
+        // Send encrypted data to backend for decryption
+        console.log('🔓 Decrypting user data using Shared Secret...');
+        const response = await fetch('/decrypt-user-data', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ encryptedData: encryptedUserData })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Decryption failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log('✅ exposeSessionDetails decryption successful:', result.userData);
+          return result.userData;
+        } else {
+          throw new Error(result.message || 'Decryption failed');
+        }
+
+      } catch (error) {
+        console.warn('⚠️ exposeSessionDetails method failed:', error.message);
         return null;
       }
     },
