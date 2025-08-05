@@ -2,13 +2,13 @@
   <div class="ghl-user-info">
     <div class="info-card">
       <div class="card-header">
-        <h3>🏢 GHL Account Information</h3>
+        <h3>🔐 GHL Secure Authentication</h3>
         <div class="header-indicators">
           <div class="status-indicator" :class="{ 'connected': userContext.hasValidToken, 'disconnected': !userContext.hasValidToken }">
-            {{ userContext.hasValidToken ? 'Connected' : 'Not Connected' }}
+            {{ userContext.hasValidToken ? 'OAuth Connected' : 'OAuth Pending' }}
           </div>
           <div class="data-indicator" :class="{ 'live': isDynamicData, 'static': !isDynamicData }">
-            {{ isDynamicData ? '🔴 LIVE' : '📊 STATIC' }}
+            {{ isDynamicData ? '🔐 SECURED' : '📊 FALLBACK' }}
           </div>
         </div>
       </div>
@@ -38,6 +38,18 @@
           <div class="info-item" v-if="userContext.identifiers?.userEmail">
             <label>User Email:</label>
             <span class="value success">{{ userContext.identifiers.userEmail }}</span>
+          </div>
+          
+          <div class="info-item" v-if="userContext.userRole">
+            <label>User Role:</label>
+            <span class="value success">{{ userContext.userRole }}</span>
+          </div>
+          
+          <div class="info-item" v-if="userContext.userType">
+            <label>Context Type:</label>
+            <span class="value" :class="{ 'success': userContext.userType === 'agency', 'warning': userContext.userType !== 'agency' }">
+              {{ userContext.userType === 'agency' ? 'Agency User' : userContext.userType }}
+            </span>
           </div>
           
           <div class="info-item">
@@ -117,6 +129,8 @@ export default {
           userName: null,
           userEmail: null
         },
+        userRole: null,
+        userType: null,
         installationExists: false,
         hasValidToken: false,
         appStatus: 'unknown',
@@ -152,66 +166,129 @@ export default {
       this.error = null;
       
       try {
-        // First, try to extract data from global context and URL
+        console.log('🔐 Using Official GHL Shared Secret authentication...');
+        
+        // Method 1: Try Official GHL postMessage method for custom pages
+        const officialUserData = await this.getOfficialGHLUserData();
+        
+        if (officialUserData) {
+          console.log('✅ Official GHL user data received:', officialUserData);
+          
+          this.userContext.identifiers = {
+            companyId: officialUserData.companyId,
+            locationId: officialUserData.activeLocation,
+            userId: officialUserData.userId,
+            userName: officialUserData.userName,
+            userEmail: officialUserData.email
+          };
+          
+          this.userContext.userRole = officialUserData.role;
+          this.userContext.userType = officialUserData.type;
+          this.isDynamicData = true;
+          
+          // Check OAuth installation status
+          await this.checkInstallationStatus();
+          
+        } else {
+          console.warn('🔄 Official method failed, trying fallback extraction...');
+          // Fallback to previous extraction methods
+          this.extractFromGlobalContext();
+        }
+        
+      } catch (error) {
+        console.error('❌ Error loading user context:', error);
+        this.error = `Failed to load user data: ${error.message}`;
+        
+        // Try fallback method
         this.extractFromGlobalContext();
         
-        // Extract URL parameters from current window only (avoid CORS issues)
-        const urlParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
-        
-        // Combine parameters from URL and hash
-        const params = new URLSearchParams();
-        
-        // Common GHL parameters to look for
-        const ghlParams = ['companyId', 'locationId', 'userId', 'token', 'ssoKey', 'code'];
-        ghlParams.forEach(param => {
-          const value = urlParams.get(param) || hashParams.get(param);
-          if (value) {
-            params.set(param, value);
-          }
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async getOfficialGHLUserData() {
+      try {
+        // Official GHL postMessage method for custom pages
+        const encryptedUserData = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Timeout waiting for user data'));
+          }, 5000);
+
+          // Request user data from parent window
+          console.log('📨 Requesting user data from GHL parent window...');
+          window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
+
+          // Listen for the response
+          const messageHandler = ({ data }) => {
+            if (data && data.message === 'REQUEST_USER_DATA_RESPONSE') {
+              clearTimeout(timeout);
+              window.removeEventListener('message', messageHandler);
+              console.log('📨 Received encrypted user data from GHL');
+              resolve(data.payload);
+            }
+          };
+
+          window.addEventListener('message', messageHandler);
         });
+
+        if (!encryptedUserData) {
+          throw new Error('No encrypted user data received');
+        }
+
+        // Send encrypted data to backend for decryption
+        console.log('🔓 Decrypting user data using Shared Secret...');
+        const response = await fetch('/decrypt-user-data', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ encryptedData: encryptedUserData })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Decryption failed: ${response.status}`);
+        }
+
+        const result = await response.json();
         
-        // Add fallback data from global context if not in URL
-        if (!params.get('companyId') && this.userContext.identifiers.companyId) {
+        if (result.success) {
+          return result.userData;
+        } else {
+          throw new Error(result.message || 'Decryption failed');
+        }
+
+      } catch (error) {
+        console.warn('⚠️ Official GHL method failed:', error.message);
+        return null;
+      }
+    },
+
+    async checkInstallationStatus() {
+      try {
+        if (!this.userContext.identifiers.companyId && !this.userContext.identifiers.locationId) {
+          return;
+        }
+
+        const params = new URLSearchParams();
+        if (this.userContext.identifiers.companyId) {
           params.set('companyId', this.userContext.identifiers.companyId);
         }
-        if (!params.get('locationId') && this.userContext.identifiers.locationId) {
+        if (this.userContext.identifiers.locationId) {
           params.set('locationId', this.userContext.identifiers.locationId);
         }
-        
-        console.log('Calling API with params:', params.toString());
-        
-        // Call our API endpoint (without relying on parent window data)
+
         const response = await fetch(`/api/user-context?${params.toString()}`);
         const data = await response.json();
         
         if (data.success) {
-          // Merge API data with locally extracted data
-          this.userContext = {
-            ...this.userContext,
-            ...data.userContext,
-            identifiers: {
-              ...this.userContext.identifiers,
-              ...data.userContext.identifiers
-            }
-          };
-          console.log('GHL User Context (merged):', this.userContext);
-        } else {
-          console.warn('API call failed, using fallback data:', data.message);
-          // Don't throw error, just use the fallback data we extracted
+          this.userContext.installationExists = data.userContext.installationExists;
+          this.userContext.hasValidToken = data.userContext.hasValidToken;
+          this.userContext.appStatus = data.userContext.appStatus;
         }
-        
+
       } catch (error) {
-        console.error('Error loading user context:', error);
-        this.error = null; // Don't show error, fallback data might be sufficient
-        
-        // Ensure we have some basic data
-        if (!this.userContext.identifiers.companyId) {
-          this.extractFromGlobalContext();
-        }
-        
-      } finally {
-        this.loading = false;
+        console.warn('⚠️ Failed to check installation status:', error);
       }
     },
     

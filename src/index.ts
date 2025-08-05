@@ -460,6 +460,56 @@ app.post("/decrypt-sso",async (req: Request, res: Response) => {
   }
 })
 
+// Official GHL User Data Decryption Endpoint using Shared Secret
+app.post("/decrypt-user-data", async (req: Request, res: Response) => {
+  try {
+    const { encryptedData } = req.body;
+    
+    if (!encryptedData) {
+      return res.status(400).json({ 
+        error: 'Missing encrypted data', 
+        message: 'Please provide encryptedData in request body' 
+      });
+    }
+
+    // Decrypt using official GHL method with Shared Secret
+    const userData = decryptUserDataOfficial(encryptedData, process.env.GHL_APP_SSO_KEY as string);
+    
+    console.log('✅ User data decrypted successfully:', {
+      userId: userData.userId,
+      companyId: userData.companyId,
+      type: userData.type,
+      activeLocation: userData.activeLocation,
+      userName: userData.userName
+    });
+
+    res.json({
+      success: true,
+      userData: userData,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ User data decryption failed:', error);
+    res.status(400).json({ 
+      error: 'Failed to decrypt user data',
+      message: error instanceof Error ? error.message : 'Decryption failed'
+    });
+  }
+})
+
+/**
+ * Official GHL user data decryption using CryptoJS AES
+ */
+function decryptUserDataOfficial(encryptedUserData: string, sharedSecretKey: string) {
+  try {
+    const decrypted = CryptoJS.AES.decrypt(encryptedUserData, sharedSecretKey).toString(CryptoJS.enc.Utf8);
+    return JSON.parse(decrypted);
+  } catch (error) {
+    throw new Error('Failed to decrypt user data');
+  }
+}
+
 // Test endpoint to inject mock installation data for testing
 app.post("/test-install", async (req: Request, res: Response) => {
   const { companyId, locationId } = req.body;
