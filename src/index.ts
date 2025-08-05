@@ -145,6 +145,145 @@ app.post("/decrypt-sso",async (req: Request, res: Response) => {
   }
 })
 
+// External Authentication Endpoints for GHL Integration
+
+/*`app.get("/auth/authorize", async (req: Request, res: Response) => { ... })` 
+Authorization URL - Where users are redirected to authenticate with your external app */
+app.get("/auth/authorize", async (req: Request, res: Response) => {
+  const { client_id, redirect_uri, state, scope } = req.query;
+  
+  // Here you would normally redirect to your app's login page
+  // For demo purposes, we'll simulate a successful authentication
+  const authCode = `auth_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  
+  // In a real app, you'd store this auth code temporarily and validate the client_id
+  console.log("External Auth Request:", { client_id, redirect_uri, state, scope });
+  
+  // Redirect back to GHL with the authorization code
+  const redirectUrl = `${redirect_uri}?code=${authCode}&state=${state}`;
+  res.redirect(redirectUrl);
+});
+
+/*`app.post("/auth/token", async (req: Request, res: Response) => { ... })` 
+Access Token Request - Where GHL sends the auth code to get access token */
+app.post("/auth/token", async (req: Request, res: Response) => {
+  const { code, client_id, client_secret, redirect_uri, grant_type } = req.body;
+  
+  // Validate the authorization code and client credentials
+  if (!code || !client_id || !client_secret) {
+    return res.status(400).json({
+      error: "invalid_request",
+      error_description: "Missing required parameters"
+    });
+  }
+  
+  // In a real app, you'd validate the auth code and client credentials
+  // For demo purposes, we'll generate tokens
+  const accessToken = `access_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  
+  console.log("Token Request:", { code, client_id, grant_type });
+  
+  res.json({
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: 3600,
+    refresh_token: refreshToken,
+    scope: "read write"
+  });
+});
+
+/*`app.post("/auth/refresh", async (req: Request, res: Response) => { ... })` 
+Refresh Token Request - Where GHL can refresh access tokens */
+app.post("/auth/refresh", async (req: Request, res: Response) => {
+  const { refresh_token, client_id, client_secret, grant_type } = req.body;
+  
+  if (!refresh_token || grant_type !== "refresh_token") {
+    return res.status(400).json({
+      error: "invalid_request",
+      error_description: "Invalid refresh token request"
+    });
+  }
+  
+  // In a real app, you'd validate the refresh token
+  const newAccessToken = `access_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  const newRefreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  
+  console.log("Token Refresh Request:", { refresh_token, client_id });
+  
+  res.json({
+    access_token: newAccessToken,
+    token_type: "Bearer",
+    expires_in: 3600,
+    refresh_token: newRefreshToken,
+    scope: "read write"
+  });
+});
+
+/*`app.get("/auth/test", async (req: Request, res: Response) => { ... })` 
+Test API Endpoint - For testing authentication credentials */
+app.get("/auth/test", async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      error: "unauthorized",
+      error_description: "Missing or invalid authorization header"
+    });
+  }
+  
+  const token = authHeader.substring(7);
+  console.log("Auth Test Request with token:", token);
+  
+  // In a real app, you'd validate the token
+  // For demo purposes, we'll return success if token exists
+  if (token && token.startsWith("access_")) {
+    res.json({
+      success: true,
+      message: "Authentication successful",
+      user_id: "test_user_123",
+      timestamp: new Date().toISOString()
+    });
+  } else {
+    res.status(401).json({
+      error: "invalid_token",
+      error_description: "Invalid access token"
+    });
+  }
+});
+
+/*`app.post("/auth/test", async (req: Request, res: Response) => { ... })` 
+Test API Endpoint - POST version for testing authentication credentials */
+app.post("/auth/test", async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      error: "unauthorized",
+      error_description: "Missing or invalid authorization header"
+    });
+  }
+  
+  const token = authHeader.substring(7);
+  console.log("Auth Test POST Request with token:", token);
+  
+  // In a real app, you'd validate the token
+  if (token && token.startsWith("access_")) {
+    res.json({
+      success: true,
+      message: "Authentication successful",
+      user_id: "test_user_123",
+      timestamp: new Date().toISOString(),
+      request_body: req.body
+    });
+  } else {
+    res.status(401).json({
+      error: "invalid_token",
+      error_description: "Invalid access token"
+    });
+  }
+});
+
 /*`app.get("/", function (req, res) {
   res.sendFile(path + "index.html");
 });` sets up a route for the root URL ("/") of the server.  This is
