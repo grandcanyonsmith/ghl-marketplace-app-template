@@ -218,20 +218,34 @@ app.post("/auth/token", async (req: Request, res: Response) => {
 /*`app.post("/auth/refresh", async (req: Request, res: Response) => { ... })` 
 Refresh Token Request - Where GHL can refresh access tokens */
 app.post("/auth/refresh", async (req: Request, res: Response) => {
+  console.log("Refresh Request Body:", req.body);
+  console.log("Refresh Request Headers:", req.headers);
+  
   const { refresh_token, client_id, client_secret, grant_type } = req.body;
   
-  if (!refresh_token || grant_type !== "refresh_token") {
+  // More flexible validation - only require refresh_token
+  if (!refresh_token) {
+    console.log("Missing refresh_token in body:", req.body);
     return res.status(400).json({
       error: "invalid_request",
-      error_description: "Invalid refresh token request"
+      error_description: "Missing refresh_token parameter"
     });
   }
   
-  // In a real app, you'd validate the refresh token
+  // Check grant_type if provided, but don't require it
+  if (grant_type && grant_type !== "refresh_token") {
+    console.log("Invalid grant_type:", grant_type);
+    return res.status(400).json({
+      error: "invalid_request", 
+      error_description: "Invalid grant_type, expected 'refresh_token'"
+    });
+  }
+  
+  // Generate new tokens
   const newAccessToken = `access_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   const newRefreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   
-  console.log("Token Refresh Request:", { refresh_token, client_id });
+  console.log("Token Refresh Success:", { refresh_token: refresh_token.substring(0, 20) + "...", client_id });
   
   res.json({
     access_token: newAccessToken,
@@ -239,6 +253,16 @@ app.post("/auth/refresh", async (req: Request, res: Response) => {
     expires_in: 3600,
     refresh_token: newRefreshToken,
     scope: "read write"
+  });
+});
+
+/*`app.get("/auth/refresh", async (req: Request, res: Response) => { ... })` 
+GET version of refresh endpoint for testing/debugging */
+app.get("/auth/refresh", async (req: Request, res: Response) => {
+  res.status(405).json({
+    error: "method_not_allowed",
+    error_description: "Use POST method for token refresh",
+    allowed_methods: ["POST"]
   });
 });
 
