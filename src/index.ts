@@ -6,10 +6,152 @@ import { GHL } from "./ghl";
 import { TokenType, AppUserType } from "./model";
 import * as CryptoJS from 'crypto-js'
 import { json } from "body-parser";
+import * as crypto from 'crypto';
 
 const path = __dirname + "/ui/dist/";
 
 dotenv.config();
+
+// GHL Webhook Authentication - Public Key for signature verification
+const GHL_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAokvo/r9tVgcfZ5DysOSC
+Frm602qYV0MaAiNnX9O8KxMbiyRKWeL9JpCpVpt4XHIcBOK4u3cLSqJGOLaPuXw6
+dO0t6Q/ZVdAV5Phz+ZtzPL16iCGeK9po6D6JHBpbi989mmzMryUnQJezlYJ3DVfB
+csedpinheNnyYeFXolrJvcsjDtfAeRx5ByHQmTnSdFUzuAnC9/GepgLT9SM4nCpv
+uxmZMxrJt5Rw+VUaQ9B8JSvbMPpez4peKaJPZHBbU3OdeCVx5klVXXZQGNHOs8gF
+3kvoV5rTnXV0IknLBXlcKKAQLZcY/Q9rG6Ifi9c+5vqlvHPCUJFT5XUGG5RKgOKU
+J062fRtN+rLYZUV+BjafxQauvC8wSWeYja63VSUruvmNj8xkx2zE/Juc+yjLjTXp
+IocmaiFeAO6fUtNjDeFVkhf5LNb59vECyrHD2SQIrhgXpO4Q3dVNA5rw576PwTzN
+h/AMfHKIjE4xQA1SZuYJmNnmVZLIZBlQAF9Ntd03rfadZ+yDiOXCCs9FkHibELhC
+HULgCsnuDJHcrGNd5/Ddm5hxGQ0ASitgHeMZ0kcIOwKDOzOU53lDza6/Y09T7sYJ
+PQe7z0cvj7aE4B+Ax1ZoZGPzpJlZtGXCsu9aTEGEnKzmsFqwcSsnw3JB31IGKAyk
+T1hhTiaCeIY/OwwwNUY2yvcCAwEAAQ==
+-----END PUBLIC KEY-----`;
+
+// Webhook verification utilities
+interface WebhookPayload {
+  timestamp: string;
+  webhookId: string;
+  [key: string]: any;
+}
+
+interface ProcessedWebhooks {
+  [webhookId: string]: number; // timestamp when processed
+}
+
+// In-memory store for processed webhooks (use Redis/DB in production)
+const processedWebhooks: ProcessedWebhooks = {};
+
+/**
+ * Verifies the digital signature of a webhook payload using GHL's public key
+ */
+function verifyWebhookSignature(payload: string, signature: string): boolean {
+  try {
+    const verifier = crypto.createVerify('SHA256');
+    verifier.update(payload);
+    verifier.end();
+    
+    // Remove 'sha256=' prefix if present
+    const cleanSignature = signature.replace(/^sha256=/, '');
+    
+    return verifier.verify(GHL_PUBLIC_KEY, cleanSignature, 'base64');
+  } catch (error) {
+    console.error('Webhook signature verification failed:', error);
+    return false;
+  }
+}
+
+/**
+ * Validates webhook timestamp to prevent replay attacks
+ */
+function isValidTimestamp(timestamp: string, maxAgeMinutes: number = 5): boolean {
+  try {
+    const webhookTime = new Date(timestamp).getTime();
+    const currentTime = Date.now();
+    const maxAge = maxAgeMinutes * 60 * 1000; // Convert to milliseconds
+    
+    return Math.abs(currentTime - webhookTime) <= maxAge;
+  } catch (error) {
+    console.error('Invalid timestamp format:', error);
+    return false;
+  }
+}
+
+/**
+ * Checks if webhook has already been processed to prevent duplicates
+ */
+function isWebhookProcessed(webhookId: string): boolean {
+  return webhookId in processedWebhooks;
+}
+
+/**
+ * Marks webhook as processed and cleans up old entries
+ */
+function markWebhookProcessed(webhookId: string): void {
+  processedWebhooks[webhookId] = Date.now();
+  
+  // Clean up old entries (older than 1 hour)
+  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+  Object.keys(processedWebhooks).forEach(id => {
+    if (processedWebhooks[id] < oneHourAgo) {
+      delete processedWebhooks[id];
+    }
+  });
+}
+
+/**
+ * Express middleware for webhook authentication
+ */
+function authenticateWebhook(req: Request, res: Response, next: any) {
+  try {
+    // Get signature from header
+    const signature = req.get('x-wh-signature');
+    if (!signature) {
+      console.warn('Webhook rejected: Missing signature header');
+      return res.status(401).json({ error: 'Missing signature header' });
+    }
+
+    // Get raw payload
+    const payload = JSON.stringify(req.body);
+    
+    // Parse webhook data
+    const webhookData: WebhookPayload = req.body;
+    
+    if (!webhookData.timestamp || !webhookData.webhookId) {
+      console.warn('Webhook rejected: Missing timestamp or webhookId');
+      return res.status(400).json({ error: 'Missing required webhook fields' });
+    }
+
+    // Check if webhook already processed
+    if (isWebhookProcessed(webhookData.webhookId)) {
+      console.warn(`Webhook rejected: Duplicate webhook ID ${webhookData.webhookId}`);
+      return res.status(409).json({ error: 'Webhook already processed' });
+    }
+
+    // Verify timestamp
+    if (!isValidTimestamp(webhookData.timestamp)) {
+      console.warn(`Webhook rejected: Invalid timestamp ${webhookData.timestamp}`);
+      return res.status(401).json({ error: 'Invalid or expired timestamp' });
+    }
+
+    // Verify signature
+    if (!verifyWebhookSignature(payload, signature)) {
+      console.warn('Webhook rejected: Invalid signature');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    // Mark webhook as processed
+    markWebhookProcessed(webhookData.webhookId);
+    
+    console.log(`✅ Webhook authenticated: ${webhookData.webhookId}`);
+    next();
+    
+  } catch (error) {
+    console.error('Webhook authentication error:', error);
+    return res.status(500).json({ error: 'Authentication failed' });
+  }
+}
+
 const app: Express = express();
 app.use(json({ type: 'application/json' }));
 app.use(express.urlencoded({ extended: true })); // Add support for form-encoded data
@@ -143,8 +285,134 @@ app.get("/example-api-call-location", async (req: Request, res: Response) => {
     console.log(req.body)
 })` sets up a route for handling HTTP POST requests to the "/example-webhook-handler" endpoint. The below POST
 api can be used to subscribe to various webhook events configured for the app. */
-app.post("/example-webhook-handler",async (req: Request, res: Response) => {
-    console.log(req.body)
+
+// Secure GHL webhook handler with signature verification
+app.post("/example-webhook-handler", authenticateWebhook, async (req: Request, res: Response) => {
+  try {
+    const webhookData: WebhookPayload = req.body;
+    
+    console.log(`🔒 Secure webhook received:`, {
+      webhookId: webhookData.webhookId,
+      timestamp: webhookData.timestamp,
+      eventType: webhookData.type || 'unknown',
+      dataKeys: Object.keys(webhookData)
+    });
+    
+    // Process different webhook types
+    switch (webhookData.type) {
+      case 'Contact.Create':
+        console.log('📝 New contact created:', webhookData.contact);
+        break;
+        
+      case 'Contact.Update':
+        console.log('✏️ Contact updated:', webhookData.contact);
+        break;
+        
+      case 'Opportunity.Create':
+        console.log('💰 New opportunity created:', webhookData.opportunity);
+        break;
+        
+      case 'Opportunity.Update':
+        console.log('🔄 Opportunity updated:', webhookData.opportunity);
+        break;
+        
+      case 'Appointment.Create':
+        console.log('📅 New appointment scheduled:', webhookData.appointment);
+        break;
+        
+      case 'InvoiceEvents':
+        console.log('💸 Invoice event:', webhookData.invoice);
+        break;
+        
+      case 'Application.Install':
+        console.log('🚀 App installed for:', webhookData.location || webhookData.company);
+        break;
+        
+      case 'Application.Uninstall':
+        console.log('❌ App uninstalled for:', webhookData.location || webhookData.company);
+        break;
+        
+      default:
+        console.log('📨 Unknown webhook type:', webhookData.type);
+        console.log('📄 Full webhook data:', webhookData);
+    }
+    
+    // Respond to GHL that webhook was processed successfully
+    res.status(200).json({ 
+      success: true, 
+      message: 'Webhook processed successfully',
+      webhookId: webhookData.webhookId,
+      processedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('❌ Webhook processing error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Webhook processing failed',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+})
+
+// Webhook health check endpoint (no authentication required)
+app.get("/webhook-health", (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'healthy',
+    message: 'Webhook endpoint is ready to receive secure GHL webhooks',
+    authentication: 'RSA SHA256 signature verification enabled',
+    replayProtection: 'Timestamp and webhook ID validation enabled',
+    processedWebhooksCount: Object.keys(processedWebhooks).length,
+    timestamp: new Date().toISOString()
+  });
+})
+
+// Webhook signature testing endpoint
+app.post("/webhook-test", (req: Request, res: Response) => {
+  try {
+    const signature = req.get('x-wh-signature');
+    const payload = JSON.stringify(req.body);
+    const webhookData: WebhookPayload = req.body;
+    
+    const validationResults = {
+      timestamp: new Date().toISOString(),
+      signature: {
+        present: !!signature,
+        valid: signature ? verifyWebhookSignature(payload, signature) : false
+      },
+      payload: {
+        hasTimestamp: !!webhookData.timestamp,
+        hasWebhookId: !!webhookData.webhookId,
+        timestampValid: webhookData.timestamp ? isValidTimestamp(webhookData.timestamp) : false,
+        alreadyProcessed: webhookData.webhookId ? isWebhookProcessed(webhookData.webhookId) : false
+      },
+      summary: 'Test completed - webhook NOT processed'
+    };
+    
+    // Add signature details for debugging
+    if (signature) {
+      validationResults.signature = {
+        ...validationResults.signature,
+        receivedSignature: signature.substring(0, 20) + '...',
+        payloadLength: payload.length
+      };
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Webhook signature test completed',
+      validation: validationResults,
+      note: 'This is a test endpoint - the webhook was not actually processed'
+    });
+    
+  } catch (error) {
+    console.error('Webhook test error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Webhook test failed',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 })
 
 /*`app.post("/api/user/profile",async (req: Request, res: Response) => { ... })` handles Course Creator 360 user profile data */
