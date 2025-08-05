@@ -258,13 +258,31 @@ app.get("/api/user-context", async (req: Request, res: Response) => {
     };
 
     // Check if we have installation data for this company/location
-    const resourceId = userContext.identifiers.companyId || userContext.identifiers.locationId;
-    if (resourceId) {
-      userContext.installationExists = ghl.checkInstallationExists(resourceId);
-      if (userContext.installationExists) {
-        userContext.hasValidToken = !!ghl.model.getAccessToken(resourceId);
+    // Try both companyId and locationId to find an installation
+    let resourceId = null;
+    let installationExists = false;
+    let hasValidToken = false;
+
+    // Check companyId first
+    if (userContext.identifiers.companyId) {
+      resourceId = userContext.identifiers.companyId;
+      installationExists = ghl.checkInstallationExists(resourceId);
+      if (installationExists) {
+        hasValidToken = !!ghl.model.getAccessToken(resourceId);
       }
     }
+
+    // If no installation found for companyId, try locationId
+    if (!installationExists && userContext.identifiers.locationId) {
+      resourceId = userContext.identifiers.locationId;
+      installationExists = ghl.checkInstallationExists(resourceId);
+      if (installationExists) {
+        hasValidToken = !!ghl.model.getAccessToken(resourceId);
+      }
+    }
+
+    userContext.installationExists = installationExists;
+    userContext.hasValidToken = hasValidToken;
 
     console.log("User Context Request:", userContext);
     
