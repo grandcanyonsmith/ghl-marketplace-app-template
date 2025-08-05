@@ -1,6 +1,7 @@
 import qs from "qs";
 import axios, { AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
 import { createDecipheriv, createHash } from 'node:crypto';
+import * as CryptoJS from 'crypto-js';
 
 import { Model, TokenType } from "./model";
 
@@ -30,7 +31,23 @@ export class GHL {
   }
 
   decryptSSOData(key: string) {
+    const ssoKey = process.env.GHL_APP_SSO_KEY as string;
+    
+    // Method 1: Try standard CryptoJS AES decryption (new format)
     try {
+      console.log('🔓 Attempting standard CryptoJS AES decryption...');
+      const decrypted = CryptoJS.AES.decrypt(key, ssoKey).toString(CryptoJS.enc.Utf8);
+      const result = JSON.parse(decrypted);
+      console.log('✅ CryptoJS AES decryption successful');
+      return result;
+    } catch (cryptoJSError) {
+      const errorMessage = cryptoJSError instanceof Error ? cryptoJSError.message : String(cryptoJSError);
+      console.warn('⚠️ CryptoJS AES decryption failed, trying legacy method...', errorMessage);
+    }
+
+    // Method 2: Try legacy custom AES-256-CBC decryption (old format)
+    try {
+      console.log('🔓 Attempting legacy AES-256-CBC decryption...');
       const blockSize = 16;
       const keySize = 32;
       const ivSize = 16;
@@ -47,7 +64,7 @@ export class GHL {
           result,
           hasher.update(Buffer.concat([
             result.subarray(-ivSize),
-            Buffer.from(process.env.GHL_APP_SSO_KEY as string, 'utf-8'),
+            Buffer.from(ssoKey, 'utf-8'),
             salt
           ])).digest()
         ]);
@@ -61,10 +78,19 @@ export class GHL {
       
       const decrypted = decipher.update(cipherText);
       const finalDecrypted = Buffer.concat([decrypted, decipher.final()]);
-      return JSON.parse(finalDecrypted.toString());
-    } catch (error) {
-      console.error('Error decrypting SSO data:', error);
-      throw error;
+      const legacyResult = JSON.parse(finalDecrypted.toString());
+      console.log('✅ Legacy AES-256-CBC decryption successful');
+      return legacyResult;
+    } catch (legacyError) {
+      const legacyErrorMessage = legacyError instanceof Error ? legacyError.message : String(legacyError);
+      console.error('❌ Both decryption methods failed:', {
+        cryptoJSError: 'CryptoJS AES failed',
+        legacyError: legacyErrorMessage,
+        keyFormat: 'base64',
+        keyLength: key.length,
+        ssoKeyLength: ssoKey.length
+      });
+      throw new Error(`SSO decryption failed: Both CryptoJS AES and legacy methods failed`);
     }
   }
 
