@@ -10,7 +10,8 @@ const path = __dirname + "/ui/dist/";
 
 dotenv.config();
 const app: Express = express();
-app.use(json({ type: 'application/json' }))
+app.use(json({ type: 'application/json' }));
+app.use(express.urlencoded({ extended: true })); // Add support for form-encoded data
 
 /*`app.use(express.static(path));` is setting up a middleware in the Express server. The
 `express.static` middleware is used to serve static files such as HTML, CSS, JavaScript, and images. */
@@ -167,22 +168,43 @@ app.get("/auth/authorize", async (req: Request, res: Response) => {
 /*`app.post("/auth/token", async (req: Request, res: Response) => { ... })` 
 Access Token Request - Where GHL sends the auth code to get access token */
 app.post("/auth/token", async (req: Request, res: Response) => {
+  console.log("Token Request Body:", req.body);
+  console.log("Token Request Headers:", req.headers);
+  
   const { code, client_id, client_secret, redirect_uri, grant_type } = req.body;
   
   // Validate the authorization code and client credentials
   if (!code || !client_id || !client_secret) {
+    console.log("Missing parameters:", { 
+      code: !!code, 
+      client_id: !!client_id, 
+      client_secret: !!client_secret 
+    });
     return res.status(400).json({
       error: "invalid_request",
       error_description: "Missing required parameters"
     });
   }
   
-  // In a real app, you'd validate the auth code and client credentials
-  // For demo purposes, we'll generate tokens
+  // Accept both old and new credentials for now
+  const validClientIds = [
+    "6884026ffd0834e1de781ad2-mdxtminw", // New credentials
+    "pk_live_Y2xlcmsuY29uc3RydWN0aW9uY2FsY2F0aW9uLmNvbSQ" // Old credentials (temporary)
+  ];
+  
+  if (!validClientIds.includes(client_id)) {
+    console.log("Invalid client_id:", client_id);
+    return res.status(400).json({
+      error: "invalid_client",
+      error_description: "Invalid client credentials"
+    });
+  }
+  
+  // Generate tokens
   const accessToken = `access_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   
-  console.log("Token Request:", { code, client_id, grant_type });
+  console.log("Token Request Success:", { code, client_id, grant_type });
   
   res.json({
     access_token: accessToken,
