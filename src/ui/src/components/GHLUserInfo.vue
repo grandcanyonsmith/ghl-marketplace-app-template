@@ -2,19 +2,23 @@
   <div class="ghl-user-info">
     <div class="info-card">
       <div class="card-header">
-        <h3>🔐 Multi-Tier GHL Authentication</h3>
+        <h3>🏢 GHL Account Information</h3>
         <div class="header-indicators">
           <div class="status-indicator" :class="{ 'connected': userContext.hasValidToken, 'disconnected': !userContext.hasValidToken }">
             {{ userContext.hasValidToken ? 'OAuth Connected' : 'OAuth Pending' }}
           </div>
           <div class="data-indicator" :class="{ 'live': isDynamicData, 'static': !isDynamicData }">
-            {{ isDynamicData ? '🔐 OFFICIAL' : '📊 FALLBACK' }}
+            {{ isDynamicData ? '🔐 SECURE' : '📊 BASIC' }}
           </div>
         </div>
       </div>
       
       <div class="card-content">
-        <div class="info-grid">
+        <div v-if="loading" class="loading">
+          <p>Loading user information...</p>
+        </div>
+        
+        <div v-else class="info-grid">
           <div class="info-item">
             <label>Company ID:</label>
             <span class="value">{{ userContext.identifiers?.companyId || 'Not Available' }}</span>
@@ -25,9 +29,9 @@
             <span class="value">{{ userContext.identifiers?.locationId || 'Not Available' }}</span>
           </div>
           
-          <div class="info-item">
+          <div class="info-item" v-if="userContext.identifiers?.userId">
             <label>User ID:</label>
-            <span class="value">{{ userContext.identifiers?.userId || 'Not Available' }}</span>
+            <span class="value success">{{ userContext.identifiers.userId }}</span>
           </div>
           
           <div class="info-item" v-if="userContext.identifiers?.userName">
@@ -72,73 +76,6 @@
           </div>
         </div>
         
-        <div v-if="userContext.planInfo" class="plan-section">
-          <h4>💼 Plan Information:</h4>
-          <div class="plan-grid">
-            <div class="plan-item">
-              <label>Plan Type:</label>
-              <span class="value">{{ userContext.planInfo.type || 'Not Available' }}</span>
-            </div>
-            <div class="plan-item">
-              <label>Currency:</label>
-              <span class="value">{{ userContext.planInfo.currency || 'USD' }}</span>
-            </div>
-            <div class="plan-item">
-              <label>User Type:</label>
-              <span class="value" :class="{ 'success': userContext.planInfo.isAgencyUser }">
-                {{ userContext.planInfo.isAgencyUser ? 'Agency User' : 'Account User' }}
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Company Information Section -->
-        <div v-if="userContext.companyData" class="plan-section">
-          <h4>🏢 Company Information</h4>
-          <div class="plan-grid">
-            <div class="plan-item" v-if="userContext.companyData?.name">
-              <label>Company Name:</label>
-              <span class="value success">{{ userContext.companyData.name }}</span>
-            </div>
-            <div class="plan-item" v-if="userContext.companyData?.id">
-              <label>Company ID:</label>
-              <span class="value">{{ userContext.companyData.id }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Location Information Section -->
-        <div v-if="userContext.locationData" class="plan-section">
-          <h4>📍 Location Information</h4>
-          <div class="plan-grid">
-            <div class="plan-item" v-if="userContext.locationData?.name">
-              <label>Location Name:</label>
-              <span class="value success">{{ userContext.locationData.name }}</span>
-            </div>
-            <div class="plan-item" v-if="userContext.locationData?.id">
-              <label>Location ID:</label>
-              <span class="value">{{ userContext.locationData.id }}</span>
-            </div>
-            <div class="plan-item" v-if="userContext.locationData?.address?.city">
-              <label>City:</label>
-              <span class="value">{{ userContext.locationData.address.city }}</span>
-            </div>
-            <div class="plan-item" v-if="userContext.locationData?.address?.country">
-              <label>Country:</label>
-              <span class="value">{{ userContext.locationData.address.country }}</span>
-            </div>
-            <div class="plan-item" v-if="userContext.locationData?.address?.address">
-              <label>Address:</label>
-              <span class="value">{{ userContext.locationData.address.address }}</span>
-            </div>
-          </div>
-        </div>
-        
-        <div v-if="userContext.ssoData" class="sso-section">
-          <h4>SSO Data:</h4>
-          <pre class="sso-data">{{ JSON.stringify(userContext.ssoData, null, 2) }}</pre>
-        </div>
-        
         <div class="actions">
           <button @click="refreshUserContext" class="refresh-btn" :disabled="loading">
             {{ loading ? 'Refreshing...' : '🔄 Refresh Data' }}
@@ -173,14 +110,9 @@ export default {
         },
         userRole: null,
         userType: null,
-        locationData: null,
-        companyData: null,
         installationExists: false,
         hasValidToken: false,
-        appStatus: 'unknown',
-        ssoData: null,
-        planInfo: null,
-        subscriptionInfo: null
+        appStatus: 'unknown'
       },
       loading: false,
       error: null,
@@ -192,16 +124,12 @@ export default {
   mounted() {
     this.loadUserContext();
     
-    // Set up periodic refresh to keep data dynamic (only if needed)
+    // Set up periodic refresh (reduced frequency)
     this.refreshInterval = setInterval(() => {
-      // Only refresh if we don't have official data
       if (!this.isDynamicData || !this.hasValidUserData()) {
-        console.log('🔄 Refreshing user context...');
         this.loadUserContext();
-      } else {
-        console.log('🔐 Skipping refresh - already have official user data');
       }
-    }, 10000); // Refresh every 10 seconds (less aggressive)
+    }, 30000); // Check every 30 seconds
   },
   
   beforeUnmount() {
@@ -216,246 +144,60 @@ export default {
       this.error = null;
       
       try {
-        console.log('🚀 Using Official GHL CustomJS Utilities...');
+        // Try GHL Shared Secret authentication
+        const sharedSecretData = await this.getGHLUserData();
         
-        // Method 1: Try Official GHL CustomJS utility methods (most reliable)
-        const customJSData = await this.getOfficialCustomJSData();
-        
-        if (customJSData) {
-          console.log('✅ Official GHL CustomJS data received:', customJSData);
-          
+        if (sharedSecretData) {
           this.userContext.identifiers = {
-            companyId: customJSData.companyId,
-            locationId: customJSData.locationId,
-            userId: customJSData.userId,
-            userName: customJSData.userName,
-            userEmail: customJSData.userEmail
+            companyId: sharedSecretData.companyId,
+            locationId: sharedSecretData.activeLocation,
+            userId: sharedSecretData.userId,
+            userName: sharedSecretData.userName,
+            userEmail: sharedSecretData.email
           };
           
-          this.userContext.userRole = customJSData.userRole;
-          this.userContext.userType = customJSData.userType;
-          this.userContext.locationData = customJSData.locationData;
-          this.userContext.companyData = customJSData.companyData;
+          this.userContext.userRole = sharedSecretData.role;
+          this.userContext.userType = sharedSecretData.type;
           this.isDynamicData = true;
           
-          // Check OAuth installation status
+          // Reduce polling frequency since we have official data
+          if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = setInterval(() => {
+              if (!this.hasValidUserData()) {
+                this.loadUserContext();
+              }
+            }, 60000); // Check every 60 seconds
+          }
+          
           await this.checkInstallationStatus();
           
         } else {
-          console.warn('🔄 CustomJS method failed, trying exposeSessionDetails method...');
-          
-          // Method 2: Try exposeSessionDetails with Shared Secret decryption
-          const exposeSessionData = await this.getExposeSessionDetailsData();
-          
-          if (exposeSessionData) {
-            console.log('✅ exposeSessionDetails user data received:', exposeSessionData);
-            
-            this.userContext.identifiers = {
-              companyId: exposeSessionData.companyId,
-              locationId: exposeSessionData.activeLocation,
-              userId: exposeSessionData.userId,
-              userName: exposeSessionData.userName,
-              userEmail: exposeSessionData.email
-            };
-            
-            this.userContext.userRole = exposeSessionData.role;
-            this.userContext.userType = exposeSessionData.type;
-            this.isDynamicData = true;
-            
-            await this.checkInstallationStatus();
-            
-          } else {
-            console.warn('🔄 exposeSessionDetails failed, trying postMessage method...');
-            
-            // Method 3: Try postMessage with Shared Secret decryption
-            const sharedSecretData = await this.getOfficialGHLUserData();
-            
-            if (sharedSecretData) {
-              console.log('✅ postMessage Shared Secret user data received:', sharedSecretData);
-              
-              this.userContext.identifiers = {
-                companyId: sharedSecretData.companyId,
-                locationId: sharedSecretData.activeLocation,
-                userId: sharedSecretData.userId,
-                userName: sharedSecretData.userName,
-                userEmail: sharedSecretData.email
-              };
-              
-                          this.userContext.userRole = sharedSecretData.role;
-            this.userContext.userType = sharedSecretData.type;
-            this.isDynamicData = true;
-            
-            // Stop aggressive polling since we have official data
-            if (this.refreshInterval) {
-              clearInterval(this.refreshInterval);
-              this.refreshInterval = setInterval(() => {
-                console.log('🔐 Periodic check - preserving official data');
-              }, 30000); // Check every 30 seconds instead of 10
-            }
-            
-            await this.checkInstallationStatus();
-              
-            } else {
-              console.warn('🔄 All official methods failed, trying fallback extraction...');
-              // Fallback to manual extraction methods
-              this.extractFromGlobalContext();
-            }
-          }
+          // Fallback to basic context extraction
+          this.extractBasicContext();
         }
         
       } catch (error) {
-        console.error('❌ Error loading user context:', error);
-        this.error = `Failed to load user data: ${error.message}`;
-        
-        // Try fallback method
-        this.extractFromGlobalContext();
+        this.error = `Authentication failed: ${error.message}`;
+        this.extractBasicContext();
         
       } finally {
         this.loading = false;
       }
     },
 
-    async getOfficialCustomJSData() {
+    async getGHLUserData() {
       try {
-        console.log('📡 Attempting to use GHL CustomJS Utilities...');
-        
-        // Check if AppUtils is available (official GHL CustomJS environment)
-        if (typeof window.AppUtils === 'undefined') {
-          console.warn('⚠️ AppUtils not available - not in GHL CustomJS environment');
-          return null;
-        }
-
-        // Use official GHL utility methods
-        const [userInfo, locationInfo, companyInfo] = await Promise.all([
-          window.AppUtils.Utilities.getCurrentUser().catch(e => {
-            console.warn('getCurrentUser failed:', e);
-            return null;
-          }),
-          window.AppUtils.Utilities.getCurrentLocation().catch(e => {
-            console.warn('getCurrentLocation failed:', e);
-            return null;
-          }),
-          window.AppUtils.Utilities.getCompany().catch(e => {
-            console.warn('getCompany failed:', e);
-            return null;
-          })
-        ]);
-
-        console.log('📊 CustomJS API Results:', {
-          userInfo,
-          locationInfo,
-          companyInfo
-        });
-
-        if (!userInfo && !locationInfo && !companyInfo) {
-          console.warn('⚠️ No data received from CustomJS utilities');
-          return null;
-        }
-
-        // Transform the data to our expected format
-        const customJSData = {
-          // User data from getCurrentUser()
-          userId: userInfo?.id,
-          userName: userInfo?.name || `${userInfo?.firstName || ''} ${userInfo?.lastName || ''}`.trim(),
-          userEmail: userInfo?.email,
-          userRole: userInfo?.role,
-          userType: userInfo?.type,
-          
-          // Location data from getCurrentLocation()
-          locationId: locationInfo?.id,
-          locationName: locationInfo?.name,
-          locationAddress: locationInfo?.address,
-          
-          // Company data from getCompany()
-          companyId: companyInfo?.id,
-          companyName: companyInfo?.name,
-
-          // Store raw data for debugging
-          locationData: locationInfo,
-          companyData: companyInfo
-        };
-
-        console.log('✅ Transformed CustomJS data:', customJSData);
-        return customJSData;
-
-      } catch (error) {
-        console.warn('⚠️ CustomJS utilities failed:', error.message);
-        return null;
-      }
-    },
-
-    async getExposeSessionDetailsData() {
-      try {
-        console.log('🔐 Attempting to use exposeSessionDetails method...');
-        
-        // Check if exposeSessionDetails is available (custom JavaScript environment)
-        if (typeof window.exposeSessionDetails !== 'function') {
-          console.warn('⚠️ exposeSessionDetails not available - not in custom JavaScript environment');
-          return null;
-        }
-
-        // APP_ID is your application's unique identifier (use Client ID)
-        const APP_ID = '6884026ffd0834e1de781ad2-mdxtminw'; // Your GHL App Client ID
-        
-        console.log('📡 Calling window.exposeSessionDetails with APP_ID:', APP_ID);
-        
-        // Use official GHL exposeSessionDetails method
-        const encryptedUserData = await window.exposeSessionDetails(APP_ID);
-        
-        if (!encryptedUserData) {
-          console.warn('⚠️ No encrypted data received from exposeSessionDetails');
-          return null;
-        }
-
-        console.log('📨 Received encrypted data from exposeSessionDetails');
-
-        // Send encrypted data to backend for decryption
-        console.log('🔓 Decrypting user data using Shared Secret...');
-        const response = await fetch('/decrypt-user-data', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ encryptedData: encryptedUserData })
-        });
-
-        if (!response.ok) {
-          throw new Error(`Decryption failed: ${response.status}`);
-        }
-
-        const result = await response.json();
-        
-        if (result.success) {
-          console.log('✅ exposeSessionDetails decryption successful:', result.userData);
-          return result.userData;
-        } else {
-          throw new Error(result.message || 'Decryption failed');
-        }
-
-      } catch (error) {
-        console.warn('⚠️ exposeSessionDetails method failed:', error.message);
-        return null;
-      }
-    },
-
-    async getOfficialGHLUserData() {
-      try {
-        // Official GHL postMessage method for custom pages
+        // Request encrypted user data from GHL parent window
         const encryptedUserData = await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            reject(new Error('Timeout waiting for user data'));
-          }, 5000);
+          const timeout = setTimeout(() => reject(new Error('Authentication timeout')), 5000);
 
-          // Request user data from parent window
-          console.log('📨 Requesting user data from GHL parent window...');
           window.parent.postMessage({ message: 'REQUEST_USER_DATA' }, '*');
 
-          // Listen for the response
           const messageHandler = ({ data }) => {
             if (data && data.message === 'REQUEST_USER_DATA_RESPONSE') {
               clearTimeout(timeout);
               window.removeEventListener('message', messageHandler);
-              console.log('📨 Received encrypted user data from GHL');
               resolve(data.payload);
             }
           };
@@ -464,33 +206,24 @@ export default {
         });
 
         if (!encryptedUserData) {
-          throw new Error('No encrypted user data received');
+          throw new Error('No user data received');
         }
 
-        // Send encrypted data to backend for decryption
-        console.log('🔓 Decrypting user data using Shared Secret...');
+        // Decrypt data using backend
         const response = await fetch('/decrypt-user-data', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ encryptedData: encryptedUserData })
         });
 
         if (!response.ok) {
-          throw new Error(`Decryption failed: ${response.status}`);
+          throw new Error(`Authentication failed: ${response.status}`);
         }
 
         const result = await response.json();
-        
-        if (result.success) {
-          return result.userData;
-        } else {
-          throw new Error(result.message || 'Decryption failed');
-        }
+        return result.success ? result.userData : null;
 
       } catch (error) {
-        console.warn('⚠️ Official GHL method failed:', error.message);
         return null;
       }
     },
@@ -519,12 +252,11 @@ export default {
         }
 
       } catch (error) {
-        console.warn('⚠️ Failed to check installation status:', error);
+        // Silently fail - not critical
       }
     },
 
     hasValidUserData() {
-      // Check if we have valid user data that shouldn't be overridden
       const hasUserId = !!this.userContext.identifiers?.userId;
       const hasUserName = !!this.userContext.identifiers?.userName;
       const hasEmail = !!this.userContext.identifiers?.userEmail;
@@ -533,330 +265,59 @@ export default {
       return hasUserId && hasUserName && hasEmail && hasCompanyId;
     },
     
-    extractFromGlobalContext() {
+    extractBasicContext() {
       // Only run fallback extraction if we don't already have good official data
       if (this.isDynamicData && this.hasValidUserData()) {
-        console.log('🔐 Preserving existing official user data, skipping fallback extraction');
         return;
       }
       
-      // Dynamically extract real GHL user data from live context
       try {
-        console.log('🔍 Extracting LIVE GHL data from context...');
+        // Extract from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.replace('#', ''));
         
-        let extractedData = {
+        const companyId = urlParams.get('companyId') || hashParams.get('companyId');
+        const locationId = urlParams.get('locationId') || hashParams.get('locationId');
+        const userId = urlParams.get('userId') || hashParams.get('userId');
+
+        // Extract from URL path
+        const pathMatches = window.location.pathname.match(/\/location\/([^/]+)|\/company\/([^/]+)/);
+        const pathLocationId = pathMatches && pathMatches[1];
+        const pathCompanyId = pathMatches && pathMatches[2];
+
+        // Update user context with any found data
+        this.userContext.identifiers = {
+          companyId: companyId || pathCompanyId,
+          locationId: locationId || pathLocationId,
+          userId: userId,
+          userName: null,
+          userEmail: null
+        };
+
+        this.userContext.appStatus = 'active';
+        this.isDynamicData = false;
+        
+      } catch (error) {
+        // Set minimal fallback data
+        this.userContext.identifiers = {
           companyId: null,
           locationId: null,
           userId: null,
           userName: null,
-          userEmail: null,
-          planInfo: null,
-          subscriptionInfo: null
+          userEmail: null
         };
-
-        // Method 1: Extract from GHL Vue.js applications (main method)
-        this.extractFromVueContext(extractedData);
-        
-        // Method 2: Extract from global window variables that GHL sets
-        this.extractFromWindowGlobals(extractedData);
-        
-        // Method 3: Extract from DOM data attributes
-        this.extractFromDOMData(extractedData);
-        
-        // Method 4: Extract from URL only as absolute fallback
-        this.extractFromURL(extractedData);
-        
-        // Method 5: Try to get data from iframe parent context safely
-        this.extractFromParentContext(extractedData);
-
-        // Update user context with extracted data
-        this.userContext.identifiers = {
-          companyId: extractedData.companyId,
-          locationId: extractedData.locationId,
-          userId: extractedData.userId,
-          userName: extractedData.userName,
-          userEmail: extractedData.userEmail
-        };
-
-        if (extractedData.planInfo) {
-          this.userContext.planInfo = extractedData.planInfo;
-        }
-
-        if (extractedData.subscriptionInfo) {
-          this.userContext.subscriptionInfo = extractedData.subscriptionInfo;
-        }
-
         this.userContext.appStatus = 'active';
-        
-        // Check if we have dynamic data (not from URL fallback)
-        const hasRealData = extractedData.companyId && extractedData.locationId && 
-                           (extractedData.userName || extractedData.userId || extractedData.planInfo);
-        this.isDynamicData = hasRealData;
-        
-        console.log('✅ Dynamically extracted GHL data:', this.userContext);
-        console.log(`📊 Data source: ${this.isDynamicData ? 'LIVE GHL Context' : 'Static/URL Fallback'}`);
-        
-      } catch (extractError) {
-        console.error('❌ Error extracting dynamic GHL data:', extractError);
-        // Only set fallback if no data was extracted at all
-        if (!this.userContext.identifiers.companyId && !this.userContext.identifiers.locationId) {
-          this.setFallbackData();
-        }
+        this.isDynamicData = false;
       }
     },
 
-    extractFromVueContext(data) {
-      try {
-        // Look for GHL's Vue application instances
-        const vueSelectors = [
-          '[data-v-app]', '#app', '.app', '[id*="app"]', 
-          '[class*="vue"]', '[data-vue]', 'main', 'body'
-        ];
-        
-        for (const selector of vueSelectors) {
-          const elements = document.querySelectorAll(selector);
-          for (const el of elements) {
-            // Check for Vue 2 instances
-            if (el.__vue__) {
-              const vue = el.__vue__;
-              console.log('📱 Found Vue 2 instance:', vue);
-              
-              // Extract from Vue store
-              if (vue.$store?.state) {
-                const state = vue.$store.state;
-                console.log('🏪 Vue store state:', state);
-                
-                data.companyId = state.companyId || state.company?.id || state.currentCompany?.id;
-                data.locationId = state.locationId || state.location?.id || state.currentLocation?.id;
-                data.userId = state.userId || state.user?.id || state.currentUser?.id;
-                data.userName = state.user?.name || state.currentUser?.name;
-                data.userEmail = state.user?.email || state.currentUser?.email;
-                
-                // Extract plan information
-                if (state.plan || state.subscription || state.subscriptionDetails) {
-                  data.planInfo = {
-                    type: state.plan?.type || state.subscription?.type || 'USAGE',
-                    currency: state.plan?.currency || 'usd',
-                    isAgencyUser: state.isAgencyUser,
-                    isAccountUser: state.isAccountUser
-                  };
-                }
-              }
-              
-              // Extract from Vue data
-              if (vue.$data) {
-                const vueData = vue.$data;
-                data.companyId = data.companyId || vueData.companyId;
-                data.locationId = data.locationId || vueData.locationId;
-                data.userId = data.userId || vueData.userId;
-              }
-            }
-            
-            // Check for Vue 3 instances
-            if (el._vnode?.ctx) {
-              const ctx = el._vnode.ctx;
-              console.log('📱 Found Vue 3 context:', ctx);
-              
-              if (ctx.app?.config?.globalProperties) {
-                const globals = ctx.app.config.globalProperties;
-                data.companyId = data.companyId || globals.companyId;
-                data.locationId = data.locationId || globals.locationId;
-                data.userId = data.userId || globals.userId;
-              }
-            }
-          }
-        }
-      } catch (vueError) {
-        console.warn('⚠️ Vue context extraction failed:', vueError.message);
-      }
+    refreshUserContext() {
+      this.loadUserContext();
     },
 
-    extractFromWindowGlobals(data) {
-      try {
-        // Common GHL global variables
-        const globalSources = [
-          'ghlConfig', 'ghlContext', 'appConfig', 'userConfig',
-          'currentUser', 'currentCompany', 'currentLocation',
-          '__GHL_APP_DATA__', '__APP_CONFIG__', 'APP_DATA'
-        ];
-        
-        globalSources.forEach(source => {
-          if (window[source]) {
-            const globalData = window[source];
-            console.log(`🌐 Found global ${source}:`, globalData);
-            
-            data.companyId = data.companyId || globalData.companyId || globalData.company?.id;
-            data.locationId = data.locationId || globalData.locationId || globalData.location?.id;
-            data.userId = data.userId || globalData.userId || globalData.user?.id;
-            data.userName = data.userName || globalData.user?.name;
-            data.userEmail = data.userEmail || globalData.user?.email;
-            
-            if (globalData.plan || globalData.subscription) {
-              data.planInfo = {
-                type: globalData.plan?.type || 'USAGE',
-                currency: globalData.plan?.currency || 'usd',
-                isAgencyUser: globalData.isAgencyUser,
-                isAccountUser: globalData.isAccountUser
-              };
-            }
-          }
-        });
-
-        // Check for embedded JSON in script tags
-        const scriptTags = document.querySelectorAll('script[type="application/json"]');
-        scriptTags.forEach(script => {
-          try {
-            const jsonData = JSON.parse(script.textContent);
-            console.log('📄 Found JSON script data:', jsonData);
-            
-            data.companyId = data.companyId || jsonData.companyId;
-            data.locationId = data.locationId || jsonData.locationId;
-            data.userId = data.userId || jsonData.userId;
-          } catch (jsonError) {
-            // Ignore invalid JSON
-          }
-        });
-        
-      } catch (globalsError) {
-        console.warn('⚠️ Global variables extraction failed:', globalsError.message);
-      }
-    },
-
-    extractFromDOMData(data) {
-      try {
-        // Look for data attributes on DOM elements
-        const dataSelectors = [
-          '[data-company-id]', '[data-location-id]', '[data-user-id]',
-          '[data-ghl-company]', '[data-ghl-location]', '[data-ghl-user]'
-        ];
-        
-        dataSelectors.forEach(selector => {
-          const el = document.querySelector(selector);
-          if (el) {
-            console.log(`🏷️ Found element with data attributes:`, el);
-            
-            data.companyId = data.companyId || el.dataset.companyId || el.dataset.ghlCompany;
-            data.locationId = data.locationId || el.dataset.locationId || el.dataset.ghlLocation;
-            data.userId = data.userId || el.dataset.userId || el.dataset.ghlUser;
-          }
-        });
-        
-      } catch (domError) {
-        console.warn('⚠️ DOM data extraction failed:', domError.message);
-      }
-    },
-
-    extractFromURL(data) {
-      try {
-        // Extract from URL path patterns
-        const urlPath = window.location.pathname;
-        const locationMatch = urlPath.match(/\/location\/([^/]+)/);
-        const companyMatch = urlPath.match(/\/company\/([^/]+)/);
-        
-        data.locationId = data.locationId || locationMatch?.[1];
-        data.companyId = data.companyId || companyMatch?.[1];
-        
-        // Extract from URL parameters as last resort
-        const urlParams = new URLSearchParams(window.location.search);
-        data.companyId = data.companyId || urlParams.get('companyId');
-        data.locationId = data.locationId || urlParams.get('locationId');
-        data.userId = data.userId || urlParams.get('userId');
-        
-      } catch (urlError) {
-        console.warn('⚠️ URL extraction failed:', urlError.message);
-      }
-    },
-
-    extractFromParentContext(data) {
-      // Try to get context from parent window (if in iframe) without triggering CORS
-      try {
-        if (window.parent && window.parent !== window) {
-          // Send a message to parent requesting context data
-          window.parent.postMessage({ 
-            type: 'GHL_REQUEST_CONTEXT',
-            origin: window.location.origin 
-          }, '*');
-          
-          // Listen for response (this won't block the extraction)
-          const messageHandler = (event) => {
-            if (event.data?.type === 'GHL_CONTEXT_RESPONSE') {
-              console.log('📨 Received context from parent:', event.data);
-              
-              if (event.data.companyId) data.companyId = event.data.companyId;
-              if (event.data.locationId) data.locationId = event.data.locationId;
-              if (event.data.userId) data.userId = event.data.userId;
-              
-              // Update the UI with the new data
-              this.userContext.identifiers = {
-                ...this.userContext.identifiers,
-                companyId: data.companyId,
-                locationId: data.locationId,
-                userId: data.userId
-              };
-              
-              window.removeEventListener('message', messageHandler);
-            }
-          };
-          
-          window.addEventListener('message', messageHandler);
-          
-          // Remove listener after timeout to prevent memory leaks
-          setTimeout(() => {
-            window.removeEventListener('message', messageHandler);
-          }, 2000);
-        }
-      } catch (parentError) {
-        console.warn('⚠️ Parent context extraction failed:', parentError.message);
-      }
-    },
-
-    setFallbackData() {
-      console.log('🔄 Setting fallback data...');
-      this.userContext.identifiers = {
-        companyId: null,
-        locationId: null,
-        userId: null,
-        userName: 'Unknown User',
-        userEmail: null
-      };
-      this.userContext.appStatus = 'active';
-    },
-    
-    async refreshUserContext() {
-      await this.loadUserContext();
-    },
-    
-    async installApp() {
-      try {
-        this.loading = true;
-        const { companyId, locationId } = this.userContext.identifiers;
-        
-        const response = await fetch('/test-install', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            companyId: companyId,
-            locationId: locationId
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          alert('App installed successfully!');
-          await this.refreshUserContext();
-        } else {
-          throw new Error(data.error || 'Installation failed');
-        }
-        
-      } catch (error) {
-        console.error('Installation error:', error);
-        alert('Installation failed: ' + error.message);
-      } finally {
-        this.loading = false;
-      }
+    installApp() {
+      // Redirect to installation flow
+      window.open('https://marketplace.gohighlevel.com/install', '_blank');
     }
   }
 }
@@ -864,7 +325,10 @@ export default {
 
 <style scoped>
 .ghl-user-info {
-  margin: 20px 0;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: 'Arial', sans-serif;
 }
 
 .info-card {
@@ -872,10 +336,11 @@ export default {
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  border: 1px solid #e2e8f0;
 }
 
 .card-header {
-  background: linear-gradient(135deg, #4285f4, #34a853);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 20px;
   display: flex;
@@ -885,239 +350,197 @@ export default {
 
 .card-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.5rem;
+  font-weight: 600;
 }
 
 .header-indicators {
   display: flex;
-  gap: 10px;
-  align-items: center;
+  gap: 12px;
 }
 
-.status-indicator {
+.status-indicator, .data-indicator {
   padding: 6px 12px;
   border-radius: 20px;
-  font-size: 12px;
-  font-weight: bold;
+  font-size: 0.85rem;
+  font-weight: 500;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.data-indicator {
-  padding: 4px 8px;
-  border-radius: 15px;
-  font-size: 10px;
-  font-weight: bold;
-  text-transform: uppercase;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+.status-indicator.connected {
+  background: rgba(34, 197, 94, 0.2);
+  color: #059669;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.status-indicator.disconnected {
+  background: rgba(239, 68, 68, 0.2);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .data-indicator.live {
-  background: rgba(255, 0, 0, 0.2);
-  color: #ff6b6b;
+  background: rgba(34, 197, 94, 0.2);
+  color: #059669;
+  border: 1px solid rgba(34, 197, 94, 0.3);
   animation: pulse 2s infinite;
 }
 
 .data-indicator.static {
-  background: rgba(255, 255, 255, 0.2);
-  color: #ccc;
+  background: rgba(156, 163, 175, 0.2);
+  color: #6b7280;
+  border: 1px solid rgba(156, 163, 175, 0.3);
 }
 
 @keyframes pulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
-}
-
-.status-indicator.connected {
-  background: rgba(76, 175, 80, 0.2);
-  color: #4caf50;
-}
-
-.status-indicator.disconnected {
-  background: rgba(255, 152, 0, 0.2);
-  color: #ff9800;
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 .card-content {
-  padding: 20px;
+  padding: 30px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
 }
 
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 15px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
 }
 
 .info-item {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border-left: 4px solid #e2e8f0;
 }
 
 .info-item label {
-  font-weight: bold;
-  color: #666;
-  font-size: 12px;
-  text-transform: uppercase;
+  font-weight: 600;
+  color: #374151;
+  margin-right: 15px;
 }
 
 .info-item .value {
-  font-family: 'Courier New', monospace;
-  background: #f5f5f5;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border-left: 3px solid #ddd;
-  word-break: break-all;
-}
-
-.value.success {
-  border-left-color: #4caf50;
-  background: #e8f5e8;
-  color: #2e7d32;
-}
-
-.value.warning {
-  border-left-color: #ff9800;
-  background: #fff8e1;
-  color: #f57f17;
-}
-
-.value.error {
-  border-left-color: #f44336;
-  background: #ffebee;
-  color: #c62828;
-}
-
-.plan-section {
-  margin: 20px 0;
-  padding: 15px;
-  background: #f0f8ff;
-  border-radius: 8px;
-  border-left: 4px solid #34a853;
-}
-
-.plan-section h4 {
-  margin: 0 0 15px 0;
-  color: #333;
-}
-
-.plan-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
-}
-
-.plan-item {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.plan-item label {
-  font-weight: bold;
-  color: #666;
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.plan-item .value {
-  font-family: 'Courier New', monospace;
-  background: #fff;
-  padding: 6px 10px;
+  font-weight: 500;
+  padding: 4px 8px;
   border-radius: 4px;
-  border-left: 3px solid #34a853;
-  font-size: 14px;
+  background: #e5e7eb;
+  color: #1f2937;
 }
 
-.sso-section {
-  margin: 20px 0;
-  padding: 15px;
-  background: #f9f9f9;
-  border-radius: 8px;
-  border-left: 4px solid #4285f4;
+.info-item .value.success {
+  background: #d1fae5;
+  color: #065f46;
 }
 
-.sso-section h4 {
-  margin: 0 0 10px 0;
-  color: #333;
+.info-item .value.warning {
+  background: #fef3c7;
+  color: #92400e;
 }
 
-.sso-data {
-  background: #2d3748;
-  color: #e2e8f0;
-  padding: 15px;
-  border-radius: 6px;
-  font-size: 12px;
-  overflow-x: auto;
-  max-height: 200px;
+.info-item .value.error {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .actions {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 15px;
+  justify-content: center;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
 }
 
 .refresh-btn, .install-btn {
-  padding: 10px 20px;
+  padding: 12px 24px;
   border: none;
-  border-radius: 6px;
-  font-weight: bold;
+  border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s ease;
+  text-decoration: none;
 }
 
 .refresh-btn {
-  background: #4285f4;
+  background: #3b82f6;
   color: white;
 }
 
 .refresh-btn:hover:not(:disabled) {
-  background: #3367d6;
+  background: #2563eb;
+  transform: translateY(-1px);
 }
 
 .refresh-btn:disabled {
-  background: #ccc;
+  background: #9ca3af;
   cursor: not-allowed;
 }
 
 .install-btn {
-  background: #34a853;
+  background: #10b981;
   color: white;
 }
 
 .install-btn:hover {
-  background: #2d8f47;
+  background: #059669;
+  transform: translateY(-1px);
 }
 
 .error-message {
-  background: #ffebee;
-  border: 1px solid #f44336;
-  border-radius: 8px;
-  padding: 15px;
   margin-top: 20px;
+  padding: 20px;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
 }
 
 .error-message h4 {
   margin: 0 0 10px 0;
-  color: #c62828;
+  font-size: 1.1rem;
 }
 
 .error-message p {
   margin: 0;
-  color: #d32f2f;
+  line-height: 1.5;
 }
 
 @media (max-width: 768px) {
-  .info-grid {
-    grid-template-columns: 1fr;
+  .ghl-user-info {
+    padding: 15px;
   }
   
   .card-header {
+    padding: 15px;
     flex-direction: column;
-    gap: 10px;
+    gap: 15px;
     text-align: center;
+  }
+  
+  .card-content {
+    padding: 20px;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .info-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
   
   .actions {

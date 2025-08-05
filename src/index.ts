@@ -468,13 +468,7 @@ app.post("/decrypt-user-data", async (req: Request, res: Response) => {
     // Decrypt using official GHL method with Shared Secret
     const userData = decryptUserDataOfficial(encryptedData, process.env.GHL_APP_SSO_KEY as string);
     
-    console.log('✅ User data decrypted successfully:', {
-      userId: userData.userId,
-      companyId: userData.companyId,
-      type: userData.type,
-      activeLocation: userData.activeLocation,
-      userName: userData.userName
-    });
+    // User data decrypted successfully
 
     res.json({
       success: true,
@@ -483,7 +477,6 @@ app.post("/decrypt-user-data", async (req: Request, res: Response) => {
     });
 
   } catch (error) {
-    console.error('❌ User data decryption failed:', error);
     res.status(400).json({ 
       error: 'Failed to decrypt user data',
       message: error instanceof Error ? error.message : 'Decryption failed'
@@ -503,34 +496,7 @@ function decryptUserDataOfficial(encryptedUserData: string, sharedSecretKey: str
   }
 }
 
-// Test endpoint to inject mock installation data for testing
-app.post("/test-install", async (req: Request, res: Response) => {
-  const { companyId, locationId } = req.body;
-  
-  if (!companyId && !locationId) {
-    return res.status(400).json({ error: "Please provide either companyId or locationId" });
-  }
-  
-  const mockInstallation = {
-    access_token: `mock_access_token_${Date.now()}`,
-    token_type: TokenType.Bearer,
-    expires_in: 3600,
-    refresh_token: `mock_refresh_token_${Date.now()}`,
-    scope: "read write",
-    userType: companyId ? AppUserType.Company : AppUserType.Location,
-    companyId: companyId || undefined,
-    locationId: locationId || undefined,
-  };
-  
-  await ghl.model.saveInstallationInfo(mockInstallation);
-  
-  res.json({
-    success: true,
-    message: "Mock installation created successfully",
-    resourceId: companyId || locationId,
-    installation: mockInstallation
-  });
-});
+// Production-ready endpoints only
 
 // Endpoint to get GHL user context information
 app.get("/api/user-context", async (req: Request, res: Response) => {
@@ -613,13 +579,7 @@ app.get("/api/user-context", async (req: Request, res: Response) => {
   }
 });
 
-// Debug endpoint to check stored installations
-app.get("/debug-installations", (req: Request, res: Response) => {
-  res.json({
-    installations: ghl.model.installationObjects,
-    message: "Current stored installations"
-  });
-});
+// Core application endpoints
 
 // External Authentication Endpoints for GHL Integration
 
