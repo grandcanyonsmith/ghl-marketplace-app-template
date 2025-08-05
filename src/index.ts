@@ -3,6 +3,7 @@ for handling HTTP requests. */
 import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
 import { GHL } from "./ghl";
+import { TokenType, AppUserType } from "./model";
 import * as CryptoJS from 'crypto-js'
 import { json } from "body-parser";
 
@@ -34,7 +35,29 @@ app.get("/authorize-handler", async (req: Request, res: Response) => {
 /*`app.get("/example-api-call", async (req: Request, res: Response) => { ... })` shows you how you can use ghl object to make get requests
  ghl object in abstract would handle all of the authorization part over here. */
 app.get("/example-api-call", async (req: Request, res: Response) => {
-  if (ghl.checkInstallationExists(req.query.companyId as string)) {
+  const companyId = req.query.companyId as string;
+  const installationExists = ghl.checkInstallationExists(companyId);
+  const accessToken = ghl.model.getAccessToken(companyId);
+  
+  console.log("API Call Debug - companyId:", companyId);
+  console.log("Installation exists:", installationExists);
+  console.log("Access token:", accessToken);
+  
+  // Return debug info if installation doesn't exist
+  if (!installationExists) {
+    return res.json({
+      error: "No installation found",
+      debug: {
+        companyId: companyId,
+        companyIdType: typeof companyId,
+        installationExists: installationExists,
+        accessToken: accessToken,
+        allInstallations: Object.keys(ghl.model.installationObjects)
+      }
+    });
+  }
+  
+  if (ghl.checkInstallationExists(companyId)) {
     try {
       const request = await ghl
         .requests(req.query.companyId as string)
@@ -46,9 +69,27 @@ app.get("/example-api-call", async (req: Request, res: Response) => {
       return res.send(request.data);
     } catch (error) {
       console.log(error);
+      return res.json({
+        error: "API call failed",
+        debug: {
+          companyId: companyId,
+          installationExists: installationExists,
+          accessToken: accessToken,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          allInstallations: Object.keys(ghl.model.installationObjects)
+        }
+      });
     }
   }
-  return res.send("Installation for this company does not exists");
+  return res.json({
+    error: "Unexpected path - installation exists but no API call made",
+    debug: {
+      companyId: companyId,
+      installationExists: installationExists,
+      accessToken: accessToken,
+      allInstallations: Object.keys(ghl.model.installationObjects)
+    }
+  });
 });
 
 /*`app.get("/example-api-call-location", async (req: Request, res: Response) => { ... })` shows you how you can use ghl object to make get requests
@@ -59,8 +100,13 @@ app.get("/example-api-call-location", async (req: Request, res: Response) => {
     method of the `GHL` class and passes the `locationId` as a parameter. This method checks if
     there is an existing installation for the provided locationId and returns a boolean value
     indicating whether the installation exists or not. */
+  
+  console.log("Location API call - Query params:", req.query);
+  console.log("Company ID:", req.query.companyId);
+  console.log("Location ID:", req.query.locationId);
+  
   try {
-    if (ghl.checkInstallationExists(req.params.locationId)) {
+    if (ghl.checkInstallationExists(req.query.locationId as string)) {
       const request = await ghl
         .requests(req.query.locationId as string)
         .get(`/contacts/?locationId=${req.query.locationId}`, {
@@ -145,6 +191,43 @@ app.post("/decrypt-sso",async (req: Request, res: Response) => {
     console.log(error)  
   }
 })
+
+// Test endpoint to inject mock installation data for testing
+app.post("/test-install", async (req: Request, res: Response) => {
+  const { companyId, locationId } = req.body;
+  
+  if (!companyId && !locationId) {
+    return res.status(400).json({ error: "Please provide either companyId or locationId" });
+  }
+  
+  const mockInstallation = {
+    access_token: `mock_access_token_${Date.now()}`,
+    token_type: TokenType.Bearer,
+    expires_in: 3600,
+    refresh_token: `mock_refresh_token_${Date.now()}`,
+    scope: "read write",
+    userType: companyId ? AppUserType.Company : AppUserType.Location,
+    companyId: companyId || undefined,
+    locationId: locationId || undefined,
+  };
+  
+  await ghl.model.saveInstallationInfo(mockInstallation);
+  
+  res.json({
+    success: true,
+    message: "Mock installation created successfully",
+    resourceId: companyId || locationId,
+    installation: mockInstallation
+  });
+});
+
+// Debug endpoint to check stored installations
+app.get("/debug-installations", (req: Request, res: Response) => {
+  res.json({
+    installations: ghl.model.installationObjects,
+    message: "Current stored installations"
+  });
+});
 
 // External Authentication Endpoints for GHL Integration
 

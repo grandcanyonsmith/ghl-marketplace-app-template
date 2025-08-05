@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 960px;
+            height: 540px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .dashboard {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 90%;
+            height: 85%;
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 30px;
+        }
+        .sidebar {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+        }
+        .logo {
+            background: #4285f4;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        .nav-item {
+            padding: 12px 15px;
+            margin: 5px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .nav-item.active {
+            background: #4285f4;
+            color: white;
+        }
+        .nav-item:hover {
+            background: #e3f2fd;
+        }
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #4285f4, #34a853);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .chart-area {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+        }
+        .chart-placeholder {
+            width: 80%;
+            height: 80%;
+            background: linear-gradient(45deg, #4285f4, #34a853, #fbbc04, #ea4335);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="logo">Your App</div>
+            <div class="nav-item active">📊 Dashboard</div>
+            <div class="nav-item">⚙️ Automation</div>
+            <div class="nav-item">👥 Leads</div>
+            <div class="nav-item">📈 Analytics</div>
+            <div class="nav-item">🔧 Settings</div>
+        </div>
+        <div class="main-content">
+            <div class="header">
+                <h1>Welcome to Your Dashboard</h1>
+                <div style="background: #4285f4; color: white; padding: 10px 20px; border-radius: 25px; font-weight: bold;">Live Data</div>
+            </div>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">1,234</div>
+                    <div class="stat-label">Active Leads</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #34a853, #4285f4);">
+                    <div class="stat-number">89%</div>
+                    <div class="stat-label">Conversion Rate</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #fbbc04, #ea4335);">
+                    <div class="stat-number">$45K</div>
+                    <div class="stat-label">Revenue This Month</div>
+                </div>
+            </div>
+            <div class="chart-area">
+                <div class="chart-placeholder">
+                    📈 Real-time Analytics Chart
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automation Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
+            width: 960px;
+            height: 540px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .automation-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 90%;
+            height: 85%;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 20px;
+        }
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+        }
+        .create-btn {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .workflow-builder {
+            display: flex;
+            flex: 1;
+            gap: 30px;
+        }
+        .steps-panel {
+            width: 200px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+        }
+        .step-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border-left: 4px solid #4ecdc4;
+            cursor: grab;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .canvas {
+            flex: 1;
+            background: #fafafa;
+            border-radius: 15px;
+            padding: 20px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .workflow-node {
+            background: white;
+            border: 3px solid #4ecdc4;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .workflow-node.trigger {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+        .workflow-node.action {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            color: white;
+        }
+        .workflow-node.condition {
+            background: linear-gradient(135deg, #feca57, #ff9ff3);
+            color: white;
+        }
+        .arrow {
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 15px solid #4ecdc4;
+            margin: 0 auto;
+        }
+        .node-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .node-desc {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="automation-container">
+        <div class="header">
+            <h1>🔧 Automation Workflows</h1>
+            <button class="create-btn">+ Create New Workflow</button>
+        </div>
+        <div class="workflow-builder">
+            <div class="steps-panel">
+                <h3 style="margin-bottom: 15px; color: #666;">Drag & Drop</h3>
+                <div class="step-item">
+                    <strong>📧 Email Trigger</strong>
+                    <br><small>New lead email received</small>
+                </div>
+                <div class="step-item">
+                    <strong>📱 SMS Action</strong>
+                    <br><small>Send welcome message</small>
+                </div>
+                <div class="step-item">
+                    <strong>⏰ Wait Action</strong>
+                    <br><small>Delay for specific time</small>
+                </div>
+                <div class="step-item">
+                    <strong>🎯 Condition</strong>
+                    <br><small>If/then logic</small>
+                </div>
+                <div class="step-item">
+                    <strong>📊 Tag Action</strong>
+                    <br><small>Add tags to contact</small>
+                </div>
+            </div>
+            <div class="canvas">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <h3 style="color: #666;">Sample Workflow: Lead Nurturing</h3>
+                </div>
+                <div class="workflow-node trigger">
+                    <div class="node-title">📧 New Lead Captured</div>
+                    <div class="node-desc">Triggers when form is submitted</div>
+                </div>
+                <div class="arrow"></div>
+                <div class="workflow-node action">
+                    <div class="node-title">📱 Send Welcome SMS</div>
+                    <div class="node-desc">Instant welcome message</div>
+                </div>
+                <div class="arrow"></div>
+                <div class="workflow-node condition">
+                    <div class="node-title">❓ Lead Score > 50?</div>
+                    <div class="node-desc">Check engagement level</div>
+                </div>
+                <div style="display: flex; gap: 40px; align-items: center;">
+                    <div class="workflow-node action" style="margin: 15px 0;">
+                        <div class="node-title">🎯 High Priority</div>
+                        <div class="node-desc">Assign to sales team</div>
+                    </div>
+                    <div class="workflow-node action" style="margin: 15px 0;">
+                        <div class="node-title">📧 Nurture Sequence</div>
+                        <div class="node-desc">Send educational emails</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support Center - Get Help</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+            color: white;
+            padding: 60px 20px;
+            border-radius: 20px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        .header p {
+            font-size: 1.3em;
+            opacity: 0.9;
+        }
+        .search-box {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+            text-align: center;
+        }
+        .search-input {
+            width: 100%;
+            max-width: 600px;
+            padding: 15px 20px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .search-input:focus {
+            border-color: #4ecdc4;
+        }
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        .contact-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        .contact-card:hover {
+            transform: translateY(-5px);
+        }
+        .contact-icon {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+        .contact-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        .contact-card p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .contact-button {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+        .contact-button:hover {
+            transform: scale(1.05);
+        }
+        .faq-section {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+        }
+        .faq-section h2 {
+            color: #333;
+            font-size: 2.2em;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .faq-item {
+            margin-bottom: 25px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 20px;
+        }
+        .faq-question {
+            font-weight: bold;
+            color: #4ecdc4;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+        }
+        .faq-question:before {
+            content: "❓ ";
+            margin-right: 8px;
+        }
+        .faq-answer {
+            color: #666;
+            line-height: 1.7;
+        }
+        .status-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+        }
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        .status-indicator {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-operational {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .quick-links {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .quick-links h3 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .quick-link {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            text-decoration: none;
+            color: #333;
+            transition: background 0.3s;
+        }
+        .quick-link:hover {
+            background: #e3f2fd;
+        }
+        .priority-badge {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .response-times {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .response-times h4 {
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🆘 Support Center</h1>
+            <p>We're here to help you succeed with our automation platform</p>
+        </div>
+
+        <div class="search-box">
+            <h3 style="margin-bottom: 20px; color: #333;">Search for Help</h3>
+            <input type="text" class="search-input" placeholder="🔍 Search for help articles, features, or common issues...">
+            <p style="margin-top: 15px; color: #666; font-size: 14px;">
+                Try searching: "setup automation", "dashboard widgets", "API integration"
+            </p>
+        </div>
+
+        <div class="contact-grid">
+            <div class="contact-card">
+                <div class="contact-icon">📧</div>
+                <h3>Email Support</h3>
+                <p>Get detailed help via email. Perfect for complex issues or feature requests.</p>
+                <div class="response-times">
+                    <h4>Response Times:</h4>
+                    <p>• General inquiries: 24 hours<br>
+                    • Technical issues: 12 hours<br>
+                    • Urgent problems: 6 hours</p>
+                </div>
+                <a href="mailto:canyonfsmith@gmail.com?subject=App Support Request" class="contact-button">
+                    Send Email
+                </a>
+            </div>
+
+            <div class="contact-card">
+                <div class="contact-icon">📞</div>
+                <h3>Phone Support</h3>
+                <p>Talk directly with our support team for immediate assistance.</p>
+                <div class="response-times">
+                    <h4>Available Hours:</h4>
+                    <p>• Monday - Friday: 9 AM - 6 PM EST<br>
+                    • Emergency line available 24/7<br>
+                    • Average wait time: < 3 minutes</p>
+                </div>
+                <a href="tel:+18016237631" class="contact-button">
+                    Call Now: +1 (801) 623-7631
+                </a>
+            </div>
+
+            <div class="contact-card">
+                <div class="contact-icon">💬</div>
+                <h3>Live Chat</h3>
+                <p>Quick answers to simple questions. Get help without waiting.</p>
+                <div class="response-times">
+                    <h4>Chat Hours:</h4>
+                    <p>• Monday - Friday: 9 AM - 5 PM EST<br>
+                    • Average response: 2 minutes<br>
+                    • Multiple language support</p>
+                </div>
+                <button class="contact-button" onclick="alert('Live chat will be available soon!')">
+                    Start Chat
+                </button>
+            </div>
+
+            <div class="contact-card">
+                <div class="contact-icon">📚</div>
+                <h3>Documentation</h3>
+                <p>Comprehensive guides, tutorials, and step-by-step instructions.</p>
+                <div class="response-times">
+                    <h4>What's Included:</h4>
+                    <p>• Setup guides<br>
+                    • Feature tutorials<br>
+                    • API documentation<br>
+                    • Video walkthroughs</p>
+                </div>
+                <a href="documentation.html" class="contact-button">
+                    View Docs
+                </a>
+            </div>
+        </div>
+
+        <div class="status-section">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #333;">🚦 System Status</h2>
+            <div class="status-item">
+                <span><strong>App Platform</strong></span>
+                <span class="status-indicator status-operational">✅ Operational</span>
+            </div>
+            <div class="status-item">
+                <span><strong>Authentication Service</strong></span>
+                <span class="status-indicator status-operational">✅ Operational</span>
+            </div>
+            <div class="status-item">
+                <span><strong>Dashboard API</strong></span>
+                <span class="status-indicator status-operational">✅ Operational</span>
+            </div>
+            <div class="status-item">
+                <span><strong>Automation Engine</strong></span>
+                <span class="status-indicator status-operational">✅ Operational</span>
+            </div>
+            <div class="status-item">
+                <span><strong>Data Sync</strong></span>
+                <span class="status-indicator status-operational">✅ Operational</span>
+            </div>
+            <p style="text-align: center; margin-top: 20px; color: #666; font-size: 14px;">
+                Last updated: <span id="current-time"></span> | All systems operational
+            </p>
+        </div>
+
+        <div class="faq-section">
+            <h2>❓ Frequently Asked Questions</h2>
+            
+            <div class="faq-item">
+                <div class="faq-question">How do I install the app in my GHL account?</div>
+                <div class="faq-answer">
+                    Visit the GoHighLevel Marketplace, search for our app, and click "Install". You'll be guided through a simple setup process that takes less than 5 minutes.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">What permissions does the app need?</div>
+                <div class="faq-answer">
+                    We only request the minimum permissions needed: read/write access to contacts and leads, automation workflows, and dashboard analytics. We never access sensitive data like billing information.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Can I customize the dashboard widgets?</div>
+                <div class="faq-answer">
+                    Yes! You can add, remove, and rearrange dashboard widgets to match your workflow. Go to Settings → Dashboard to customize your view.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">How do I create my first automation?</div>
+                <div class="faq-answer">
+                    Navigate to the Automation section, click "Create New Workflow", choose a trigger (like form submission), add actions (send email, SMS, etc.), and activate. We also provide templates for common scenarios.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Is the app mobile-friendly?</div>
+                <div class="faq-answer">
+                    Absolutely! Our app is fully responsive and works perfectly on smartphones and tablets. You can access all features, view analytics, and manage automations from any device.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">What happens to my data if I uninstall the app?</div>
+                <div class="faq-answer">
+                    Your GHL data remains untouched. We only store app-specific settings and preferences, which are permanently deleted within 30 days of uninstallation per our privacy policy.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Do you offer API access for custom integrations?</div>
+                <div class="faq-answer">
+                    Yes! We provide a comprehensive REST API for custom integrations. Check our <a href="documentation.html#api" style="color: #4ecdc4;">API documentation</a> for endpoints and authentication details.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Can I export my automation data and analytics?</div>
+                <div class="faq-answer">
+                    Yes, you can export data in CSV, JSON, or PDF formats. Go to Settings → Export Data to download your automation performance metrics and analytics reports.
+                </div>
+            </div>
+        </div>
+
+        <div class="quick-links">
+            <h3>🔗 Quick Links</h3>
+            <div class="links-grid">
+                <a href="documentation.html" class="quick-link">
+                    📖 Setup Guide
+                </a>
+                <a href="documentation.html#features" class="quick-link">
+                    ✨ Feature Overview
+                </a>
+                <a href="documentation.html#automation" class="quick-link">
+                    🔧 Automation Builder
+                </a>
+                <a href="documentation.html#troubleshooting" class="quick-link">
+                    🔧 Troubleshooting
+                </a>
+                <a href="documentation.html#api" class="quick-link">
+                    🔌 API Reference
+                </a>
+                <a href="mailto:canyonfsmith@gmail.com?subject=Feature Request" class="quick-link">
+                    💡 Feature Request
+                </a>
+            </div>
+        </div>
+
+        <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); margin-top: 40px; text-align: center;">
+            <h3 style="color: #333; margin-bottom: 15px;">🚨 Emergency Support</h3>
+            <p style="color: #666; margin-bottom: 20px;">
+                Experiencing a critical issue affecting your business operations?
+            </p>
+            <a href="tel:+18016237631" class="contact-button" style="background: linear-gradient(135deg, #ff6b6b, #ee5a24);">
+                Call Emergency Line: +1 (801) 623-7631
+                <span class="priority-badge">24/7</span>
+            </a>
+            <p style="color: #666; margin-top: 15px; font-size: 14px;">
+                For critical issues only. Standard support requests should use regular channels.
+            </p>
+        </div>
+
+        <div style="text-align: center; padding: 40px; color: #666;">
+            <p>© 2024 Your Automation Platform. All rights reserved.</p>
+            <p>Need help? We're here for you every step of the way! 💪</p>
+        </div>
+    </div>
+
+    <script>
+        // Update current time
+        document.getElementById('current-time').textContent = new Date().toLocaleString();
+        
+        // Simple search functionality
+        document.querySelector('.search-input').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            if (searchTerm.length > 2) {
+                // In a real implementation, this would search through help articles
+                console.log('Searching for:', searchTerm);
+            }
+        });
+    </script>
+</body>
+</html>

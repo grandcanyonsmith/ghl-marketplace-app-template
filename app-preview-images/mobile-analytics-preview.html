@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Analytics Preview</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 960px;
+            height: 540px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 90%;
+            height: 85%;
+            padding: 30px;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+        .mobile-mockup {
+            width: 250px;
+            height: 400px;
+            background: #333;
+            border-radius: 25px;
+            padding: 15px;
+            position: relative;
+        }
+        .mobile-screen {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .mobile-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .mobile-content {
+            flex: 1;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .mobile-stat {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .mobile-stat-number {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        .mobile-stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .analytics-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .analytics-header {
+            text-align: center;
+        }
+        .analytics-header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        .analytics-header p {
+            color: #666;
+            font-size: 16px;
+        }
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            flex: 1;
+        }
+        .chart-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .chart-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .chart-visual {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: conic-gradient(#667eea 0deg 180deg, #e0e0e0 180deg 360deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            position: relative;
+        }
+        .chart-visual.bar {
+            border-radius: 10px;
+            background: linear-gradient(to top, #667eea 0%, #667eea 70%, #e0e0e0 70%, #e0e0e0 100%);
+            width: 100px;
+            height: 80px;
+        }
+        .feature-list {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            grid-column: 1 / -1;
+        }
+        .feature-list h3 {
+            margin-bottom: 15px;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="mobile-mockup">
+            <div class="mobile-screen">
+                <div class="mobile-header">
+                    📱 Mobile Dashboard
+                </div>
+                <div class="mobile-content">
+                    <div class="mobile-stat">
+                        <div class="mobile-stat-number">2,451</div>
+                        <div class="mobile-stat-label">Total Leads</div>
+                    </div>
+                    <div class="mobile-stat">
+                        <div class="mobile-stat-number">94.2%</div>
+                        <div class="mobile-stat-label">Uptime</div>
+                    </div>
+                    <div class="mobile-stat">
+                        <div class="mobile-stat-number">12</div>
+                        <div class="mobile-stat-label">Active Workflows</div>
+                    </div>
+                    <div style="background: #667eea; color: white; padding: 15px; border-radius: 10px; text-align: center; margin-top: auto;">
+                        <strong>✨ All features available on mobile</strong>
+                        <br><small>Access your data anywhere</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="analytics-panel">
+            <div class="analytics-header">
+                <h1>📊 Real-time Analytics</h1>
+                <p>Monitor your business performance with live data insights</p>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Conversion Rate</h3>
+                    <div class="chart-visual">
+                        68%
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Monthly Growth</h3>
+                    <div class="chart-visual bar">
+                        +24%
+                    </div>
+                </div>
+                <div class="feature-list">
+                    <h3>🚀 Powerful Features</h3>
+                    <div class="features">
+                        <div class="feature-item">✅ Real-time sync</div>
+                        <div class="feature-item">✅ Custom reports</div>
+                        <div class="feature-item">✅ Mobile responsive</div>
+                        <div class="feature-item">✅ Easy integration</div>
+                        <div class="feature-item">✅ Advanced filters</div>
+                        <div class="feature-item">✅ Export data</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
