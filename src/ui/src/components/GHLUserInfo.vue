@@ -3,8 +3,13 @@
     <div class="info-card">
       <div class="card-header">
         <h3>🏢 GHL Account Information</h3>
-        <div class="status-indicator" :class="{ 'connected': userContext.hasValidToken, 'disconnected': !userContext.hasValidToken }">
-          {{ userContext.hasValidToken ? 'Connected' : 'Not Connected' }}
+        <div class="header-indicators">
+          <div class="status-indicator" :class="{ 'connected': userContext.hasValidToken, 'disconnected': !userContext.hasValidToken }">
+            {{ userContext.hasValidToken ? 'Connected' : 'Not Connected' }}
+          </div>
+          <div class="data-indicator" :class="{ 'live': isDynamicData, 'static': !isDynamicData }">
+            {{ isDynamicData ? '🔴 LIVE' : '📊 STATIC' }}
+          </div>
         </div>
       </div>
       
@@ -23,6 +28,16 @@
           <div class="info-item">
             <label>User ID:</label>
             <span class="value">{{ userContext.identifiers?.userId || 'Not Available' }}</span>
+          </div>
+          
+          <div class="info-item" v-if="userContext.identifiers?.userName">
+            <label>User Name:</label>
+            <span class="value success">{{ userContext.identifiers.userName }}</span>
+          </div>
+          
+          <div class="info-item" v-if="userContext.identifiers?.userEmail">
+            <label>User Email:</label>
+            <span class="value success">{{ userContext.identifiers.userEmail }}</span>
           </div>
           
           <div class="info-item">
@@ -95,20 +110,40 @@ export default {
   data() {
     return {
       userContext: {
-        identifiers: {},
+        identifiers: {
+          companyId: null,
+          locationId: null,
+          userId: null,
+          userName: null,
+          userEmail: null
+        },
         installationExists: false,
         hasValidToken: false,
         appStatus: 'unknown',
         ssoData: null,
-        planInfo: null
+        planInfo: null,
+        subscriptionInfo: null
       },
       loading: false,
-      error: null
+      error: null,
+      isDynamicData: false,
+      refreshInterval: null
     }
   },
   
   mounted() {
     this.loadUserContext();
+    
+    // Set up periodic refresh to keep data dynamic
+    this.refreshInterval = setInterval(() => {
+      this.extractFromGlobalContext();
+    }, 5000); // Refresh every 5 seconds
+  },
+  
+  beforeUnmount() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
   },
   
   methods: {
@@ -181,99 +216,287 @@ export default {
     },
     
     extractFromGlobalContext() {
-      // Try to extract data from window object, Vue app data, or URL patterns
+      // Dynamically extract real GHL user data from live context
       try {
-        console.log('Extracting from global context...');
+        console.log('🔍 Extracting LIVE GHL data from context...');
         
-        // Look for common GHL global variables and Vue app data
-        const ghlData = window.ghlConfig || window.ghlContext || {};
+        let extractedData = {
+          companyId: null,
+          locationId: null,
+          userId: null,
+          userName: null,
+          userEmail: null,
+          planInfo: null,
+          subscriptionInfo: null
+        };
+
+        // Method 1: Extract from GHL Vue.js applications (main method)
+        this.extractFromVueContext(extractedData);
         
-        // Try to find Vue app instance data (GHL uses Vue)
-        let vueAppData = null;
-        try {
-          const appElements = document.querySelectorAll('[data-v-app], #app, .app');
-          for (const el of appElements) {
-            if (el.__vue__ && el.__vue__.$store) {
-              vueAppData = el.__vue__.$store.state;
-              break;
+        // Method 2: Extract from global window variables that GHL sets
+        this.extractFromWindowGlobals(extractedData);
+        
+        // Method 3: Extract from DOM data attributes
+        this.extractFromDOMData(extractedData);
+        
+        // Method 4: Extract from URL only as absolute fallback
+        this.extractFromURL(extractedData);
+        
+        // Method 5: Try to get data from iframe parent context safely
+        this.extractFromParentContext(extractedData);
+
+        // Update user context with extracted data
+        this.userContext.identifiers = {
+          companyId: extractedData.companyId,
+          locationId: extractedData.locationId,
+          userId: extractedData.userId,
+          userName: extractedData.userName,
+          userEmail: extractedData.userEmail
+        };
+
+        if (extractedData.planInfo) {
+          this.userContext.planInfo = extractedData.planInfo;
+        }
+
+        if (extractedData.subscriptionInfo) {
+          this.userContext.subscriptionInfo = extractedData.subscriptionInfo;
+        }
+
+        this.userContext.appStatus = 'active';
+        
+        // Check if we have dynamic data (not from URL fallback)
+        const hasRealData = extractedData.companyId && extractedData.locationId && 
+                           (extractedData.userName || extractedData.userId || extractedData.planInfo);
+        this.isDynamicData = hasRealData;
+        
+        console.log('✅ Dynamically extracted GHL data:', this.userContext);
+        console.log(`📊 Data source: ${this.isDynamicData ? 'LIVE GHL Context' : 'Static/URL Fallback'}`);
+        
+      } catch (extractError) {
+        console.error('❌ Error extracting dynamic GHL data:', extractError);
+        // Only set fallback if no data was extracted at all
+        if (!this.userContext.identifiers.companyId && !this.userContext.identifiers.locationId) {
+          this.setFallbackData();
+        }
+      }
+    },
+
+    extractFromVueContext(data) {
+      try {
+        // Look for GHL's Vue application instances
+        const vueSelectors = [
+          '[data-v-app]', '#app', '.app', '[id*="app"]', 
+          '[class*="vue"]', '[data-vue]', 'main', 'body'
+        ];
+        
+        for (const selector of vueSelectors) {
+          const elements = document.querySelectorAll(selector);
+          for (const el of elements) {
+            // Check for Vue 2 instances
+            if (el.__vue__) {
+              const vue = el.__vue__;
+              console.log('📱 Found Vue 2 instance:', vue);
+              
+              // Extract from Vue store
+              if (vue.$store?.state) {
+                const state = vue.$store.state;
+                console.log('🏪 Vue store state:', state);
+                
+                data.companyId = state.companyId || state.company?.id || state.currentCompany?.id;
+                data.locationId = state.locationId || state.location?.id || state.currentLocation?.id;
+                data.userId = state.userId || state.user?.id || state.currentUser?.id;
+                data.userName = state.user?.name || state.currentUser?.name;
+                data.userEmail = state.user?.email || state.currentUser?.email;
+                
+                // Extract plan information
+                if (state.plan || state.subscription || state.subscriptionDetails) {
+                  data.planInfo = {
+                    type: state.plan?.type || state.subscription?.type || 'USAGE',
+                    currency: state.plan?.currency || 'usd',
+                    isAgencyUser: state.isAgencyUser,
+                    isAccountUser: state.isAccountUser
+                  };
+                }
+              }
+              
+              // Extract from Vue data
+              if (vue.$data) {
+                const vueData = vue.$data;
+                data.companyId = data.companyId || vueData.companyId;
+                data.locationId = data.locationId || vueData.locationId;
+                data.userId = data.userId || vueData.userId;
+              }
             }
-            if (el._vnode && el._vnode.context && el._vnode.context.$store) {
-              vueAppData = el._vnode.context.$store.state;
-              break;
+            
+            // Check for Vue 3 instances
+            if (el._vnode?.ctx) {
+              const ctx = el._vnode.ctx;
+              console.log('📱 Found Vue 3 context:', ctx);
+              
+              if (ctx.app?.config?.globalProperties) {
+                const globals = ctx.app.config.globalProperties;
+                data.companyId = data.companyId || globals.companyId;
+                data.locationId = data.locationId || globals.locationId;
+                data.userId = data.userId || globals.userId;
+              }
             }
           }
-        } catch (vueError) {
-          console.log('Could not access Vue app data:', vueError.message);
         }
+      } catch (vueError) {
+        console.warn('⚠️ Vue context extraction failed:', vueError.message);
+      }
+    },
+
+    extractFromWindowGlobals(data) {
+      try {
+        // Common GHL global variables
+        const globalSources = [
+          'ghlConfig', 'ghlContext', 'appConfig', 'userConfig',
+          'currentUser', 'currentCompany', 'currentLocation',
+          '__GHL_APP_DATA__', '__APP_CONFIG__', 'APP_DATA'
+        ];
         
-        // Extract from URL patterns - look for GHL location URL structure
+        globalSources.forEach(source => {
+          if (window[source]) {
+            const globalData = window[source];
+            console.log(`🌐 Found global ${source}:`, globalData);
+            
+            data.companyId = data.companyId || globalData.companyId || globalData.company?.id;
+            data.locationId = data.locationId || globalData.locationId || globalData.location?.id;
+            data.userId = data.userId || globalData.userId || globalData.user?.id;
+            data.userName = data.userName || globalData.user?.name;
+            data.userEmail = data.userEmail || globalData.user?.email;
+            
+            if (globalData.plan || globalData.subscription) {
+              data.planInfo = {
+                type: globalData.plan?.type || 'USAGE',
+                currency: globalData.plan?.currency || 'usd',
+                isAgencyUser: globalData.isAgencyUser,
+                isAccountUser: globalData.isAccountUser
+              };
+            }
+          }
+        });
+
+        // Check for embedded JSON in script tags
+        const scriptTags = document.querySelectorAll('script[type="application/json"]');
+        scriptTags.forEach(script => {
+          try {
+            const jsonData = JSON.parse(script.textContent);
+            console.log('📄 Found JSON script data:', jsonData);
+            
+            data.companyId = data.companyId || jsonData.companyId;
+            data.locationId = data.locationId || jsonData.locationId;
+            data.userId = data.userId || jsonData.userId;
+          } catch (jsonError) {
+            // Ignore invalid JSON
+          }
+        });
+        
+      } catch (globalsError) {
+        console.warn('⚠️ Global variables extraction failed:', globalsError.message);
+      }
+    },
+
+    extractFromDOMData(data) {
+      try {
+        // Look for data attributes on DOM elements
+        const dataSelectors = [
+          '[data-company-id]', '[data-location-id]', '[data-user-id]',
+          '[data-ghl-company]', '[data-ghl-location]', '[data-ghl-user]'
+        ];
+        
+        dataSelectors.forEach(selector => {
+          const el = document.querySelector(selector);
+          if (el) {
+            console.log(`🏷️ Found element with data attributes:`, el);
+            
+            data.companyId = data.companyId || el.dataset.companyId || el.dataset.ghlCompany;
+            data.locationId = data.locationId || el.dataset.locationId || el.dataset.ghlLocation;
+            data.userId = data.userId || el.dataset.userId || el.dataset.ghlUser;
+          }
+        });
+        
+      } catch (domError) {
+        console.warn('⚠️ DOM data extraction failed:', domError.message);
+      }
+    },
+
+    extractFromURL(data) {
+      try {
+        // Extract from URL path patterns
         const urlPath = window.location.pathname;
         const locationMatch = urlPath.match(/\/location\/([^/]+)/);
         const companyMatch = urlPath.match(/\/company\/([^/]+)/);
         
-        // Extract from URL hash or search
-        const hash = window.location.hash;
-        const search = window.location.search;
+        data.locationId = data.locationId || locationMatch?.[1];
+        data.companyId = data.companyId || companyMatch?.[1];
         
-        const extractId = (str, key) => {
-          const match = str.match(new RegExp(`${key}[=:]([^&#/]+)`));
-          return match ? decodeURIComponent(match[1]) : null;
-        };
+        // Extract from URL parameters as last resort
+        const urlParams = new URLSearchParams(window.location.search);
+        data.companyId = data.companyId || urlParams.get('companyId');
+        data.locationId = data.locationId || urlParams.get('locationId');
+        data.userId = data.userId || urlParams.get('userId');
         
-        // Set identifiers with fallback chain
-        this.userContext.identifiers = {
-          companyId: 
-            ghlData.companyId ||
-            vueAppData?.companyId ||
-            extractId(search, 'companyId') || 
-            extractId(hash, 'companyId') ||
-            companyMatch?.[1] ||
-            '6kMPRAENXZaGJWeW5zxa', // From console logs
-            
-          locationId: 
-            ghlData.locationId ||
-            vueAppData?.locationId ||
-            extractId(search, 'locationId') || 
-            extractId(hash, 'locationId') ||
-            locationMatch?.[1] ||
-            'xxL6tWuwIRMdpVJvUAX5', // From console logs
-            
-          userId: 
-            ghlData.userId ||
-            vueAppData?.userId ||
-            extractId(search, 'userId') || 
-            extractId(hash, 'userId') ||
-            null
-        };
-        
-        // Try to extract plan information from global scope
-        if (vueAppData?.plan || vueAppData?.subscriptionDetails) {
-          this.userContext.planInfo = {
-            type: vueAppData.plan?.type || 'USAGE',
-            currency: vueAppData.plan?.currency || 'usd',
-            isAgencyUser: vueAppData.isAgencyUser || true,
-            isAccountUser: vueAppData.isAccountUser || false
-          };
-        }
-        
-        // Set basic app status
-        this.userContext.appStatus = 'active';
-        
-        console.log('Extracted context:', this.userContext);
-        
-      } catch (extractError) {
-        console.warn('Could not extract from global context:', extractError);
-        // Set minimal fallback data from console logs
-        this.userContext.identifiers = {
-          companyId: '6kMPRAENXZaGJWeW5zxa',
-          locationId: 'xxL6tWuwIRMdpVJvUAX5',
-          userId: null
-        };
-        this.userContext.appStatus = 'active';
+      } catch (urlError) {
+        console.warn('⚠️ URL extraction failed:', urlError.message);
       }
     },
-    
 
+    extractFromParentContext(data) {
+      // Try to get context from parent window (if in iframe) without triggering CORS
+      try {
+        if (window.parent && window.parent !== window) {
+          // Send a message to parent requesting context data
+          window.parent.postMessage({ 
+            type: 'GHL_REQUEST_CONTEXT',
+            origin: window.location.origin 
+          }, '*');
+          
+          // Listen for response (this won't block the extraction)
+          const messageHandler = (event) => {
+            if (event.data?.type === 'GHL_CONTEXT_RESPONSE') {
+              console.log('📨 Received context from parent:', event.data);
+              
+              if (event.data.companyId) data.companyId = event.data.companyId;
+              if (event.data.locationId) data.locationId = event.data.locationId;
+              if (event.data.userId) data.userId = event.data.userId;
+              
+              // Update the UI with the new data
+              this.userContext.identifiers = {
+                ...this.userContext.identifiers,
+                companyId: data.companyId,
+                locationId: data.locationId,
+                userId: data.userId
+              };
+              
+              window.removeEventListener('message', messageHandler);
+            }
+          };
+          
+          window.addEventListener('message', messageHandler);
+          
+          // Remove listener after timeout to prevent memory leaks
+          setTimeout(() => {
+            window.removeEventListener('message', messageHandler);
+          }, 2000);
+        }
+      } catch (parentError) {
+        console.warn('⚠️ Parent context extraction failed:', parentError.message);
+      }
+    },
+
+    setFallbackData() {
+      console.log('🔄 Setting fallback data...');
+      this.userContext.identifiers = {
+        companyId: null,
+        locationId: null,
+        userId: null,
+        userName: 'Unknown User',
+        userEmail: null
+      };
+      this.userContext.appStatus = 'active';
+    },
     
     async refreshUserContext() {
       await this.loadUserContext();
@@ -341,12 +564,44 @@ export default {
   font-size: 18px;
 }
 
+.header-indicators {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .status-indicator {
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: bold;
   text-transform: uppercase;
+}
+
+.data-indicator {
+  padding: 4px 8px;
+  border-radius: 15px;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.data-indicator.live {
+  background: rgba(255, 0, 0, 0.2);
+  color: #ff6b6b;
+  animation: pulse 2s infinite;
+}
+
+.data-indicator.static {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ccc;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
 }
 
 .status-indicator.connected {
