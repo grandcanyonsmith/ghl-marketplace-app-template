@@ -192,10 +192,16 @@ export default {
   mounted() {
     this.loadUserContext();
     
-    // Set up periodic refresh to keep data dynamic
+    // Set up periodic refresh to keep data dynamic (only if needed)
     this.refreshInterval = setInterval(() => {
-      this.extractFromGlobalContext();
-    }, 5000); // Refresh every 5 seconds
+      // Only refresh if we don't have official data
+      if (!this.isDynamicData || !this.hasValidUserData()) {
+        console.log('🔄 Refreshing user context...');
+        this.loadUserContext();
+      } else {
+        console.log('🔐 Skipping refresh - already have official user data');
+      }
+    }, 10000); // Refresh every 10 seconds (less aggressive)
   },
   
   beforeUnmount() {
@@ -275,11 +281,19 @@ export default {
                 userEmail: sharedSecretData.email
               };
               
-              this.userContext.userRole = sharedSecretData.role;
-              this.userContext.userType = sharedSecretData.type;
-              this.isDynamicData = true;
-              
-              await this.checkInstallationStatus();
+                          this.userContext.userRole = sharedSecretData.role;
+            this.userContext.userType = sharedSecretData.type;
+            this.isDynamicData = true;
+            
+            // Stop aggressive polling since we have official data
+            if (this.refreshInterval) {
+              clearInterval(this.refreshInterval);
+              this.refreshInterval = setInterval(() => {
+                console.log('🔐 Periodic check - preserving official data');
+              }, 30000); // Check every 30 seconds instead of 10
+            }
+            
+            await this.checkInstallationStatus();
               
             } else {
               console.warn('🔄 All official methods failed, trying fallback extraction...');
@@ -508,8 +522,24 @@ export default {
         console.warn('⚠️ Failed to check installation status:', error);
       }
     },
+
+    hasValidUserData() {
+      // Check if we have valid user data that shouldn't be overridden
+      const hasUserId = !!this.userContext.identifiers?.userId;
+      const hasUserName = !!this.userContext.identifiers?.userName;
+      const hasEmail = !!this.userContext.identifiers?.userEmail;
+      const hasCompanyId = !!this.userContext.identifiers?.companyId;
+      
+      return hasUserId && hasUserName && hasEmail && hasCompanyId;
+    },
     
     extractFromGlobalContext() {
+      // Only run fallback extraction if we don't already have good official data
+      if (this.isDynamicData && this.hasValidUserData()) {
+        console.log('🔐 Preserving existing official user data, skipping fallback extraction');
+        return;
+      }
+      
       // Dynamically extract real GHL user data from live context
       try {
         console.log('🔍 Extracting LIVE GHL data from context...');
